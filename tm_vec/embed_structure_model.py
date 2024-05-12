@@ -19,7 +19,7 @@ class Config:
         config = json.dumps(asdict(self), indent=2)
         with open(filename, 'w') as f:
             f.write(config)
-    
+
     @classmethod
     def from_json(cls, filename):
         with open(filename, 'r') as f:
@@ -36,7 +36,7 @@ class trans_basic_block_Config(Config):
     dim_feedforward: int = 2048
     out_dim: int = 512
     dropout: float = 0.1
-    activation: str = 'relu'
+    activation: str = 'gelu'
     # data params
     lr0: float = 0.0001
     warmup_steps: int = 300
@@ -54,7 +54,7 @@ class trans_basic_block(pl.LightningModule):
         self.config = config
 
         # build encoder
-        encoder_args = {k: v for k, v in asdict(config).items() if k in inspect.signature(nn.TransformerEncoderLayer).parameters} 
+        encoder_args = {k: v for k, v in asdict(config).items() if k in inspect.signature(nn.TransformerEncoderLayer).parameters}
         num_layers = config.num_layers
 
         encoder_layer = nn.TransformerEncoderLayer(batch_first=True, **encoder_args)
@@ -74,7 +74,7 @@ class trans_basic_block(pl.LightningModule):
         x = self.mlp(x)
         return x
 
-    
+
     def distance_loss_euclidean(self, output_seq1, output_seq2, tm_score):
         pdist_seq = nn.PairwiseDistance(p=2)
         dist_seq = pdist_seq(output_seq1, output_seq2)
@@ -88,7 +88,7 @@ class trans_basic_block(pl.LightningModule):
         return dist_tm
 
     def distance_loss(self, output_seq1, output_seq2, tm_score):
-        dist_seq = self.cos(output_seq1, output_seq2)  
+        dist_seq = self.cos(output_seq1, output_seq2)
         dist_tm = self.l1_loss(dist_seq.unsqueeze(0), tm_score.float().unsqueeze(0))
         return dist_tm
 
@@ -97,7 +97,7 @@ class trans_basic_block(pl.LightningModule):
         out_seq1 = self.forward(sequence_1, src_mask=None, src_key_padding_mask=pad_mask_1)
         out_seq2 = self.forward(sequence_2, src_mask=None, src_key_padding_mask=pad_mask_2)
         loss = self.distance_loss(out_seq1, out_seq2, tm_score)
-        self.log('train_loss', loss)
+        self.log('train_loss', loss, prog_bar=True, sync_dist=True)
         return loss
 
     def validation_step(self, val_batch, batch_idx):
@@ -105,8 +105,8 @@ class trans_basic_block(pl.LightningModule):
         out_seq1 = self.forward(sequence_1, src_mask=None, src_key_padding_mask=pad_mask_1)
         out_seq2 = self.forward(sequence_2, src_mask=None, src_key_padding_mask=pad_mask_2)
         loss = self.distance_loss(out_seq1, out_seq2, tm_score)
-        self.log('val_loss', loss)
-        
+        self.log('val_loss', loss, prog_bar=True, sync_dist=True)
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.config.lr0)
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
