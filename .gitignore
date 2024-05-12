@@ -1,4 +1,8 @@
 # dev
+cache/
+tmvec_data/
+tmvec_train/
+tmvec_retrained/
 *.ipynb
 
 # Temporary files

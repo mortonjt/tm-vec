@@ -25,16 +25,16 @@ export METAG_NLAYER=2
 export METAG_NHEADS=4
 export METAG_IN_DIM=2048
 export METAG_WARMUP_STEPS=300
-export METAG_TRAIN_PROP=0.90 
+export METAG_TRAIN_PROP=0.90
 export METAG_VAL_PROP=0.05
 export METAG_TEST_PROP=0.05
 
 set -ex
-export METAG_LR=0.0001
-export METAG_BSIZE=16
+export METAG_LR=0.00005
+export METAG_BSIZE=32
 export METAG_SESSION=/mnt/home/thamamsy/ceph/deepblast/models/transformer_lr${METAG_LR}_dmodel${METAG_DMODEL}_nlayer${METAG_NLAYER}_cosine_sigmoid_big_data
 export METAG_RANDOM_SEED=$RANDOM
-export EPOCHS=20
+export EPOCHS=40
 
 
 set +x

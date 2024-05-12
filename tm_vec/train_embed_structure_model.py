@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
-from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.loggers import WandbLogger
 
 from tm_vec.data_embed_structure import collate_fn, tm_score_embeds_dataset, construct_datasets
 from tm_vec.embed_structure_model import trans_basic_block, trans_basic_block_Config
@@ -20,7 +20,7 @@ from tm_vec.utils import SessionTree
 #Comand line
 def arguments():
     parser = argparse.ArgumentParser(description="Train a structural embedding model")
-    
+
     parser.add_argument("--gpus",
             type=int,
             help="Num. gpus",
@@ -32,11 +32,17 @@ def arguments():
             default=1
     )
 
-    parser.add_argument("--data",
-            type=Path,
-            required=True,
-            help="Data"
-    )
+    parser.add_argument("--hdf_file",
+                type=Path,
+                required=True,
+                help="HDF file with embeddings"
+        )
+
+    parser.add_argument("--tm_pairs",
+                type=Path,
+                required=True,
+                help="TSV file with pairs of proteins with TM scores"
+        )
 
     parser.add_argument("--session",
             type=Path,
@@ -90,24 +96,27 @@ def collect_trans_block_arguments(args) -> trans_basic_block_Config:
 
 
 if __name__ == '__main__':
-        
+
         #Construct datasets: Make train, test, and validation datasets
         args = arguments()
         config = collect_trans_block_arguments(vars(args))
         config = trans_basic_block_Config(**config)
         print(config, flush=True)
         model = config.build()
+
         tree = SessionTree(args.session)
         config.to_json(tree.params)
 
-        train_ds, val_ds, test_ds = construct_datasets(args.data, args.train_prop, args.val_prop, args.test_prop)
+        train_ds, val_ds, test_ds = construct_datasets(args.hdf_file, args.tm_pairs,
+                                                       args.train_prop, args.val_prop, args.test_prop)
+
         print("Constructed datasets")
         #Build the data loaders: train data loader and validation data loader
         train_dataloader = DataLoader(train_ds, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=4)
         val_dataloader = DataLoader(val_ds, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=4)
 
         val_check_interval = 0.05
-        effective_batch_size = args.gpus * args.nodes * args.batch_size 
+        effective_batch_size = args.gpus * args.nodes * args.batch_size
         every_n_train_steps = int(len(train_ds) * val_check_interval) // effective_batch_size
         print("Saving and validating every ", every_n_train_steps, " steps")
 
@@ -123,15 +132,16 @@ if __name__ == '__main__':
                 save_last=True
         )
 
-        #Logger
-        logger = pl.loggers.TensorBoardLogger(tree.logs)
-
+        # logger = pl.loggers.TensorBoardLogger(tree.logs)
+        logger = WandbLogger(project="tm_vec", log_model=False, save_dir=tree.logs, offline=True,
+                             config = config)
         #Trainer
         trainer = pl.Trainer(
-                #strategy='ddp',
+                strategy='ddp',
+                accelerator='gpu',
                 callbacks=[ckpt],
                 logger=logger,
-                gpus=args.gpus,
+                devices=args.gpus,
                 val_check_interval=val_check_interval,
                 num_nodes=args.nodes,
                 gradient_clip_val=0.5,
@@ -140,6 +150,7 @@ if __name__ == '__main__':
         )
 
 
-        #Setup model and fit 
+        # Setup model and fit
         print("Training...")
         trainer.fit(model, train_dataloader, val_dataloader)
+        print("Training complete")
