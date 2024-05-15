@@ -82,19 +82,19 @@ class ESMEncoder(ProtLM):
                                    mode="max-autotune",
                                    dynamic=True)
 
-        def remove_special_tokens(self, embeddings, attention_mask):
-            """
-            Remove special tokens from the embedding
-            """
-            clean_embeddings = []
+    def remove_special_tokens(self, embeddings, attention_mask):
+        """
+        Remove special tokens from the embedding
+        """
+        clean_embeddings = []
 
-            for seq_num in range(len(embeddings)):
-                seq_len = (attention_mask[seq_num] == 1).sum()
-                seq_emb = embeddings[seq_num][:seq_len - 1]
-                # remove first <cls> token
-                clean_embeddings.append(seq_emb[1:])
+        for seq_num in range(len(embeddings)):
+            seq_len = (attention_mask[seq_num] == 1).sum()
+            seq_emb = embeddings[seq_num][:seq_len - 1]
+            # remove first <cls> token
+            clean_embeddings.append(seq_emb[1:])
 
-            return embeddings
+        return embeddings
 
 
 class ProtT5Encoder:
@@ -121,15 +121,15 @@ class ProtT5Encoder:
                                    mode="max-autotune",
                                    dynamic=True)
 
-        def remove_special_tokens(self, embeddings, attention_mask):
-            """
-            Remove special tokens from the embedding
-            """
-            clean_embeddings = []
+    def remove_special_tokens(self, embeddings, attention_mask):
+        """
+        Remove special tokens from the embedding
+        """
+        clean_embeddings = []
 
-            for seq_num in range(len(embeddings)):
-                seq_len = (attention_mask[seq_num] == 1).sum()
-                seq_emb = embeddings[seq_num][:seq_len - 1]
-                clean_embeddings.append(seq_emb)
+        for seq_num in range(len(embeddings)):
+            seq_len = (attention_mask[seq_num] == 1).sum()
+            seq_emb = embeddings[seq_num][:seq_len - 1]
+            clean_embeddings.append(seq_emb)
 
-            return embeddings
+        return embeddings
