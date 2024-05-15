@@ -9,11 +9,12 @@ import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger
+import lightning as L
+from lightning.pytorch.loggers import WandbLogger
+import gc
 
-from tm_vec.data_embed_structure import collate_fn, tm_score_embeds_dataset, construct_datasets
-from tm_vec.embed_structure_model import trans_basic_block, trans_basic_block_Config
+from tm_vec.dataset import collate_fn, tm_score_embeds_dataset, construct_datasets
+from tm_vec.model import trans_basic_block, trans_basic_block_Config
 from tm_vec.utils import SessionTree
 
 
@@ -112,8 +113,8 @@ if __name__ == '__main__':
 
         print("Constructed datasets")
         #Build the data loaders: train data loader and validation data loader
-        train_dataloader = DataLoader(train_ds, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=4)
-        val_dataloader = DataLoader(val_ds, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=4)
+        train_dataloader = DataLoader(train_ds, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=2)
+        val_dataloader = DataLoader(val_ds, batch_size=args.batch_size, collate_fn=collate_fn, num_workers=2)
 
         val_check_interval = 0.05
         effective_batch_size = args.gpus * args.nodes * args.batch_size
@@ -121,7 +122,7 @@ if __name__ == '__main__':
         print("Saving and validating every ", every_n_train_steps, " steps")
 
         #Model checkpoints
-        ckpt = pl.callbacks.ModelCheckpoint(
+        ckpt = L.pytorch.callbacks.ModelCheckpoint(
                 dirpath=tree.checkpoints,
                 monitor="val_loss",
                 verbose=True,
@@ -134,13 +135,14 @@ if __name__ == '__main__':
 
         # logger = pl.loggers.TensorBoardLogger(tree.logs)
         logger = WandbLogger(project="tm_vec", log_model=False, save_dir=tree.logs, offline=True,
-                             config = config)
-        #Trainer
-        trainer = pl.Trainer(
+                             config=config)
+        # Trainer
+        trainer = L.Trainer(
                 strategy='ddp',
                 accelerator='gpu',
                 callbacks=[ckpt],
                 logger=logger,
+                precision="16-true",
                 devices=args.gpus,
                 val_check_interval=val_check_interval,
                 num_nodes=args.nodes,
