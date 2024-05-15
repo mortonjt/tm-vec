@@ -14,12 +14,13 @@ class ProtLM:
     Includes methods for tokenization and batching of sequences.
     Tested on ESM and ProtT5
     """
-    def __init__(self, model_path, cache_dir, device):
+    def __init__(self, model_path, cache_dir):
         self.model_path = model_path
         self.cache_dir = cache_dir
         self.tokenizer = None
         self.model = None
-        self.device = device
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
     def tokenize(self, sequences):
         inp = self.tokenizer(sequences, padding=True, return_tensors="pt")
@@ -59,11 +60,10 @@ class ESMEncoder(ProtLM):
     def __init__(self,
                  model_path: str,
                  cache_dir: str,
-                 device: str,
                  local_files_only: bool = True,
                  pooling_layer: bool = False):
 
-        super().__init__(model_path, cache_dir, device)
+        super().__init__(model_path, cache_dir)
         self.model = EsmModel.from_pretrained(self.model_path,
                                               cache_dir=self.cache_dir)
         self.tokenizer = EsmTokenizer.from_pretrained(
@@ -101,10 +101,9 @@ class ProtT5Encoder:
     def __init__(self,
                  model_path: str,
                  cache_dir: str,
-                 device: str,
                  local_files_only: bool = True):
 
-        super().__init__(model_path, cache_dir, device)
+        super().__init__(model_path, cache_dir)
         self.model = T5EncoderModel.from_pretrained(self.model_path,
                                                     cache_dir=self.cache_dir)
         self.tokenizer = T5Tokenizer.from_pretrained(
