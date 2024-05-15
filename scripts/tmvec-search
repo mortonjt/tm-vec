@@ -4,13 +4,16 @@ import pandas as pd
 import torch
 from tm_vec.embed_structure_model import (trans_basic_block,
                                           trans_basic_block_Config)
-from tm_vec.tm_vec_utils import (format_ids, encode, load_database, query)
-from deepblast.dataset.utils import states2alignment
+from tm_vec.database import (format_ids, load_database, query)
+from tm_vec.tm_vec_utils import encode
+
+# from deepblast.dataset.utils import states2alignment
 from transformers import T5EncoderModel, T5Tokenizer
 import gc
 from pathlib import Path
 import argparse
-from pysam.libcfaidx import FastxFile, FastaFile
+from pysam.libcfaidx import FastaFile
+from tm_vec.utils import load_fasta_as_dict
 
 parser = argparse.ArgumentParser(
     description='Process TM-Vec arguments', add_help=True)
@@ -124,15 +127,17 @@ parser.add_argument("--output-embeddings",
 args = parser.parse_args()
 
 # Read in query sequences
-with FastxFile(args.query) as query_fasta:
-    headers = []
-    seqs = []
-    for record in query_fasta:
-        headers.append(record.name)
-        seqs.append(str(record.sequence))
+records = load_fasta_as_dict(args.query)
 
-flat_seqs = [seqs[i] for i in range(len(seqs))]
-print("Sequences inputed")
+# sort sequences by length
+sorted_records = sorted(records.items(), key=lambda x: len(x[1]), reverse=True)
+prefilter = len(sorted_records)
+# remove sequences longer than 512
+# limitation of the ProtT5-XL
+sorted_records = {k: v for k, v in sorted_records if len(v) <= 512}
+postfilter = len(sorted_records)
+headers, flat_seqs = zip(*sorted_records.items())
+print(f"Filtered {prefilter - postfilter} sequences longer than 512 aa; ProtT5-XL was only trained on these.")
 
 # Load metadata if it exists
 metadata_database = np.load(args.metadata)
@@ -181,8 +186,6 @@ model_deep = model_deep.to(device)
 model_deep = model_deep.eval()
 print("TM-Vec model loaded")
 
-
-
 # Read in query database
 query_database = np.load(args.database)
 
@@ -210,43 +213,43 @@ near_ids = np.array(near_ids)
 
 del model_deep  # need to clear space for DeepBLAST aligner
 
-# Alignment section
-# If we are also aligning proteins, load tm_vec align and
-# align nearest neighbors if true
-if args.deepblast_model is not None and args.output_format == 'alignment':
-    # moving imports here because it may take a very long time
-    from deepblast.dataset.utils import states2alignment
-    from deepblast.utils import load_model
+# # Alignment section
+# # If we are also aligning proteins, load tm_vec align and
+# # align nearest neighbors if true
+# if args.deepblast_model is not None and args.output_format == 'alignment':
+#     # moving imports here because it may take a very long time
+#     from deepblast.dataset.utils import states2alignment
+#     from deepblast.utils import load_model
 
-    align_model = load_model(
-        args.deepblast_model, lm=model, tokenizer=tokenizer,
-        alignment_mode=args.alignment_mode,
-        device=device)
+#     align_model = load_model(
+#         args.deepblast_model, lm=model, tokenizer=tokenizer,
+#         alignment_mode=args.alignment_mode,
+#         device=device)
 
-    align_model = align_model.to(device)
-    seq_db = FastaFile(args.database_fasta)
+#     align_model = align_model.to(device)
+#     seq_db = FastaFile(args.database_fasta)
 
-    alignments = []
-    with open(args.output, 'w') as fh:
-        for i in range(I.shape[0]):
-            for j in range(I.shape[1]):
-                x = flat_seqs[i]
-                seq_i = metadata_database[I[i, j]]
-                y = seq_db.fetch(seq_i)
-                try:
-                    pred_alignment = align_model.align(x, y)
-                    # Note : there is an edge case that smith-waterman will throw errors,
-                    # but needleman-wunsch won't.
-                    x_aligned, y_aligned = states2alignment(pred_alignment, x, y)
-                    alignments_i = [x_aligned, pred_alignment, y_aligned]
-                    # sWrite out the alignments
-                    x, s, y = alignments_i
-                    # TODO : not clear how to get the sequence IDS
-                    ix, iy = format_ids(headers[i], seq_i)
-                    fh.write(ix + ' ' + x + '\n')
-                    fh.write(iy + ' ' + y + '\n\n')
-                except:
-                    print(f'No valid alignments found for {headers[i]} {seq_i}')
+#     alignments = []
+#     with open(args.output, 'w') as fh:
+#         for i in range(I.shape[0]):
+#             for j in range(I.shape[1]):
+#                 x = flat_seqs[i]
+#                 seq_i = metadata_database[I[i, j]]
+#                 y = seq_db.fetch(seq_i)
+#                 try:
+#                     pred_alignment = align_model.align(x, y)
+#                     # Note : there is an edge case that smith-waterman will throw errors,
+#                     # but needleman-wunsch won't.
+#                     x_aligned, y_aligned = states2alignment(pred_alignment, x, y)
+#                     alignments_i = [x_aligned, pred_alignment, y_aligned]
+#                     # sWrite out the alignments
+#                     x, s, y = alignments_i
+#                     # TODO : not clear how to get the sequence IDS
+#                     ix, iy = format_ids(headers[i], seq_i)
+#                     fh.write(ix + ' ' + x + '\n')
+#                     fh.write(iy + ' ' + y + '\n\n')
+#                 except:
+#                     print(f'No valid alignments found for {headers[i]} {seq_i}')
 
 
 # Outputting results
