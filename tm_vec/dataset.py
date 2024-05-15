@@ -7,7 +7,7 @@ import h5py
 import gzip
 
 
-#Define collate function for batches
+# Define collate function for batches
 def collate_fn(batch, pad_id = 1, max_len = 1024):
     S1_tensors = [t['Embed_sequence_1'] for t in batch]
     S2_tensors = [t['Embed_sequence_2'] for t in batch]
@@ -59,7 +59,7 @@ class tm_score_embeds_dataset(Dataset):
             # convert sequences to tensors of type half
             sample = {'Embed_sequence_1': torch.Tensor(seq1),
                       'Embed_sequence_2': torch.Tensor(seq2),
-                      'tm_score': torch.tensor(tm_score)}
+                      'tm_score': tm_score}
         return sample
 
 #Function to construct datasets to be fed to dataloader
