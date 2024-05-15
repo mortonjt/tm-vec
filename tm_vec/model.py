@@ -5,7 +5,7 @@ from dataclasses import dataclass, asdict
 
 import torch
 from torch import nn
-import pytorch_lightning as pl
+import lightning as L
 
 
 @dataclass
@@ -36,7 +36,7 @@ class trans_basic_block_Config(Config):
     dim_feedforward: int = 2048
     out_dim: int = 512
     dropout: float = 0.1
-    activation: str = 'gelu'
+    activation: str = 'relu'
     # data params
     lr0: float = 0.0001
     warmup_steps: int = 300
@@ -45,7 +45,7 @@ class trans_basic_block_Config(Config):
         return trans_basic_block(self)
 
 
-class trans_basic_block(pl.LightningModule):
+class trans_basic_block(L.LightningModule):
     """
     TransformerEncoderLayer with preset parameters followed by global pooling and dropout
     """
@@ -68,7 +68,7 @@ class trans_basic_block(pl.LightningModule):
 
     def forward(self, x, src_mask, src_key_padding_mask):
         x = self.encoder(x, mask=src_mask, src_key_padding_mask=src_key_padding_mask)
-        lens = torch.logical_not(src_key_padding_mask).sum(dim=1).float()
+        lens = torch.logical_not(src_key_padding_mask).sum(dim=1)
         x = x.sum(dim=1) / lens.unsqueeze(1)
         x = self.dropout(x)
         x = self.mlp(x)
@@ -78,13 +78,13 @@ class trans_basic_block(pl.LightningModule):
     def distance_loss_euclidean(self, output_seq1, output_seq2, tm_score):
         pdist_seq = nn.PairwiseDistance(p=2)
         dist_seq = pdist_seq(output_seq1, output_seq2)
-        dist_tm = torch.cdist(dist_seq.unsqueeze(0), tm_score.float().unsqueeze(0), p=2)
+        dist_tm = torch.cdist(dist_seq.unsqueeze(0), tm_score.unsqueeze(0), p=2)
         return dist_tm
 
     def distance_loss_sigmoid(self, output_seq1, output_seq2, tm_score):
         dist_seq = output_seq1 - output_seq2
         dist_seq = torch.sigmoid(dist_seq).mean(1)
-        dist_tm = torch.cdist(dist_seq.unsqueeze(0), tm_score.float().unsqueeze(0), p=2)
+        dist_tm = torch.cdist(dist_seq.unsqueeze(0), tm_score.unsqueeze(0), p=2)
         return dist_tm
 
     def distance_loss(self, output_seq1, output_seq2, tm_score):
@@ -108,6 +108,6 @@ class trans_basic_block(pl.LightningModule):
         self.log('val_loss', loss, prog_bar=True, sync_dist=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.lr0)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.lr0, eps=1e-4)
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
         return [optimizer], [lr_scheduler]
