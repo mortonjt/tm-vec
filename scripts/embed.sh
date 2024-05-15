@@ -20,7 +20,7 @@ module load gcc/11.4.0
 module load cuda/12.1.1
 module load cudnn/8.9.2.26
 
-python /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/scripts/embed.py \
+python /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/scripts/bulk_embed.py \
     --fasta-file /nfs/nas22/fs2202/biol_micro_sunagawa/Projects/STU/SSKIOTYTE_STU/scratch/raw/mmseqs/COG0048/COG0048_all.fasta \
     --model-local-path /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/cache/models--facebook--esm2_t36_3B_UR50D/snapshots/476b639933c8baad5ad09a60ac1a87f987b656fc \
     --output-file $OUTPUT

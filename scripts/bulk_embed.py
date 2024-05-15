@@ -78,5 +78,4 @@ with h5py.File(args.output_file, "w") as f:
                                                emb):
             logger.info(f"Writing embedding for sequence {header}.")
             grp = f.create_group(header)
-            grp.create_dataset("seq", data=sequence)
             grp.create_dataset("emb", data=embedding)
