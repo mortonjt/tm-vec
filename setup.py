@@ -1,5 +1,4 @@
 from setuptools import find_packages, setup
-from glob import glob
 
 classes = """
     Development Status :: 5 - Production/Stable
@@ -20,7 +19,13 @@ classes = """
 classifiers = [s.strip() for s in classes.split('\n') if s]
 
 description = ('Structural similarity.')
-
+extras = {
+    'dev': [
+        'wandb',
+        'matplotlib',
+        'pre-commit',
+    ]
+}
 
 setup(name='tm-vec',
       version='1.0.4',
@@ -31,17 +36,12 @@ setup(name='tm-vec',
       packages=find_packages(),
       install_requires=[
           'numpy',
-          'scipy',
           'pandas',
           'torch',
+          'lightning',
           'pysam',
-          'scikit-learn',
-          'pytorch-lightning',
-          'matplotlib',
-          'biopython',
-          'deepblast',
           'transformers',
-          'SentencePiece',
+          'SentencePiece'
       ],
       scripts=[
           'scripts/tmvec-build-database',
