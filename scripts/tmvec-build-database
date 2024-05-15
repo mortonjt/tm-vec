@@ -3,8 +3,9 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from tm_vec.embed_structure_model import trans_basic_block, trans_basic_block_Config
+from tm_vec.model import trans_basic_block, trans_basic_block_Config
 from tm_vec.tm_vec_utils import encode
+from tm_vec.utils import load_fasta_as_dict
 from transformers import T5EncoderModel, T5Tokenizer
 import gc
 from pysam.libcfaidx import FastxFile
@@ -39,17 +40,7 @@ parser.add_argument("--protrans-model",
                           "If this is not specified, then the model will "
                           "automatically be downloaded.")
 )
-parser.add_argument("--device",
-                    type=str,
-                    default=None,
-                    required=False,
-                    help=(
-                        "The device id to load the model onto. "
-                        "This will specify whether or not a GPU "
-                        "will be utilized.  If `gpu` is specified "
-                        "then the first gpu device will be used."
-                    )
-)
+
 parser.add_argument("--output",
                     type=Path,
                     required=True,
@@ -66,28 +57,20 @@ parser.add_argument("--threads",
 args = parser.parse_args()
 
 # Set device
-if args.device == 'cpu':
-    device = torch.device('cpu')
-elif torch.cuda.is_available() and args.device is not None:
-    if args.device == 'gpu':
-        device = torch.device(f'cuda:0')
-    else:
-        device = torch.device(f'cuda:{int(args.device)}')
-else:
-    device = torch.device('cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
 
 if args.protrans_model is None:
     # Load the ProtTrans model and ProtTrans tokenizer
-    tokenizer = T5Tokenizer.from_pretrained("Rostlab/prot_t5_xl_uniref50", do_lower_case=False )
+    tokenizer = T5Tokenizer.from_pretrained("Rostlab/prot_t5_xl_uniref50", do_lower_case=False)
     model = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50")
 else:
-    tokenizer = T5Tokenizer.from_pretrained(args.protrans_model, do_lower_case=False )
+    tokenizer = T5Tokenizer.from_pretrained(args.protrans_model, do_lower_case=False)
     model = T5EncoderModel.from_pretrained(args.protrans_model)
 
 gc.collect()
 model = model.to(device)
 model = model.eval()
-print("ProtTrans model downloaded")
 
 # set up threads
 torch.set_num_threads(args.threads)
@@ -103,17 +86,17 @@ print("TM-Vec model loaded")
 
 
 # Read in query sequences
-with FastxFile(args.input_fasta) as query_fasta:
-    headers = []
-    seqs = []
-    for record in query_fasta:
-        headers.append(record.name)
-        # remove "*"" if present in sequence
-        # "*"" denotes stop codon in Prodigal
-        seqs.append(record.sequence.replace('*', ''))
+records = load_fasta_as_dict(args.input_fasta)
 
-flat_seqs = [seqs[i] for i in range(len(seqs))]
-print(f"Loaded {len(flat_seqs)} sequences")
+# sort sequences by length
+sorted_records = sorted(records.items(), key=lambda x: len(x[1]), reverse=True)
+prefilter = len(sorted_records)
+# remove sequences longer than 512
+# limitation of the ProtT5-XL
+sorted_records = {k: v for k, v in sorted_records if len(v) <= 512}
+postfilter = len(sorted_records)
+headers, flat_seqs = zip(*sorted_records.items())
+print(f"Filtered {prefilter - postfilter} sequences longer than 512 aa; ProtT5-XL was only trained on these.")
 
 # Embed all query sequences
 encoded_database = encode(flat_seqs, model_deep, model, tokenizer, device)
