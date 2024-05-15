@@ -3,7 +3,7 @@
 ##################################################################
 
 NGPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
-#module load gcc/7.4.0 cuda/11.1.0_455.23.05 cudnn/v8.0.4-cuda-11.1 
+#module load gcc/7.4.0 cuda/11.1.0_455.23.05 cudnn/v8.0.4-cuda-11.1
 module load gcc/7.5.0 cuda/11.4.2 cudnn/8.2.4.15-11.4
 
 #export NCCL_SOCKET_IFNAME=$(./scripts/get_ifname.py)
