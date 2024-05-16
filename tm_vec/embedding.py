@@ -14,13 +14,26 @@ class ProtLM:
     Includes methods for tokenization and batching of sequences.
     Tested on ESM and ProtT5
     """
-    def __init__(self, model_path, cache_dir):
+    def __init__(self, model_path, cache_dir, compile_model):
         self.model_path = model_path
         self.cache_dir = cache_dir
+        self.compile_model = compile_model
         self.tokenizer = None
         self.model = None
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
+
+    def finalize_torch(self):
+        self.model.eval()
+        self.model.to(self.device)
+        if self.compile_model:
+            self.model = torch.compile(self.model,
+                                       mode="max-autotune",
+                                       dynamic=True)
+
+    # # convert to half precision if cuda
+    # if self.device.type == "cuda":
+    #     self.model.half()
 
     def tokenize(self, sequences):
         inp = self.tokenizer(sequences, padding=True, return_tensors="pt")
@@ -35,7 +48,7 @@ class ProtLM:
 
         inp = self.tokenize(sequences)
         out = self.forward_pass(inp)
-        embs = out.last_hidden_state
+        embs = out.last_hidden_state.cpu().numpy()
 
         return inp, embs
 
@@ -60,10 +73,11 @@ class ESMEncoder(ProtLM):
     def __init__(self,
                  model_path: str,
                  cache_dir: str,
+                 compile_model: bool = False,
                  local_files_only: bool = True,
                  pooling_layer: bool = False):
 
-        super().__init__(model_path, cache_dir)
+        super().__init__(model_path, cache_dir, compile_model)
         self.model = EsmModel.from_pretrained(self.model_path,
                                               cache_dir=self.cache_dir)
         self.tokenizer = EsmTokenizer.from_pretrained(
@@ -71,21 +85,14 @@ class ESMEncoder(ProtLM):
             cache_dir=self.cache_dir,
             local_files_only=local_files_only,
             add_pooling_layer=pooling_layer)
-        # # convert to half precision if cuda
-        # if self.device.type == "cuda":
-        #     self.model.half()
-
-        self.model.to(self.device)
-        self.model.eval()
-        # compile model
-        self.model = torch.compile(self.model,
-                                   mode="max-autotune",
-                                   dynamic=True)
+        super().finalize_torch()
 
     def remove_special_tokens(self, embeddings, attention_mask):
         """
         Remove special tokens from the embedding
         """
+        embeddings = list(embeddings)
+
         clean_embeddings = []
 
         for seq_num in range(len(embeddings)):
@@ -94,32 +101,25 @@ class ESMEncoder(ProtLM):
             # remove first <cls> token
             clean_embeddings.append(seq_emb[1:])
 
-        return embeddings
+        return clean_embeddings
 
 
-class ProtT5Encoder:
+class ProtT5Encoder(ProtLM):
     def __init__(self,
                  model_path: str,
                  cache_dir: str,
-                 local_files_only: bool = True):
+                 compile_model: bool = False,
+                 local_files_only: bool = True,
+                 pooling_layer: bool = False):
 
-        super().__init__(model_path, cache_dir)
+        super().__init__(model_path, cache_dir, compile_model)
         self.model = T5EncoderModel.from_pretrained(self.model_path,
                                                     cache_dir=self.cache_dir)
         self.tokenizer = T5Tokenizer.from_pretrained(
             self.model_path,
             cache_dir=self.cache_dir,
             local_files_only=local_files_only)
-        # # convert to half precision if cuda
-        # if self.device.type == "cuda":
-        #     self.model.half()
-
-        self.model.to(self.device)
-        self.model.eval()
-        # compile model
-        self.model = torch.compile(self.model,
-                                   mode="max-autotune",
-                                   dynamic=True)
+        super().finalize_torch()
 
     def remove_special_tokens(self, embeddings, attention_mask):
         """
@@ -132,4 +132,4 @@ class ProtT5Encoder:
             seq_emb = embeddings[seq_num][:seq_len - 1]
             clean_embeddings.append(seq_emb)
 
-        return embeddings
+        return clean_embeddings
