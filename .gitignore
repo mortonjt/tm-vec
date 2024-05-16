@@ -4,6 +4,10 @@ tmvec_data/
 tmvec_train/
 tmvec_retrained/
 *.ipynb
+# include notebooks folder
+!notebooks/*
+benchmarks/benchmark_data
+
 
 # Temporary files
 *~
