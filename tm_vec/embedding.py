@@ -30,7 +30,9 @@ class ProtLM:
         self.forward_pass = forward_pass
 
     def tokenize(self, sequences):
-        inp = self.tokenizer(sequences, padding=True, return_tensors="pt")
+        inp = self.tokenizer.batch_encode_plus(sequences,
+                                               padding=True,
+                                               return_tensors="pt")
         return inp
 
     def batch_embed(self, sequences):
@@ -95,3 +97,32 @@ class ESMEncoder(ProtLM):
         # remove <cls> token
         clean_embeddings = [emb[1:] for emb in clean_embeddings]
         return clean_embeddings
+
+
+class Ankh(ProtLM):
+    def __init__(self,
+                 model_path,
+                 cache_dir,
+                 compile_model=False,
+                 local_files_only=True,
+                 pooling_layer=False):
+        from transformers import AutoTokenizer, T5EncoderModel
+        super().__init__(model_path, cache_dir, compile_model)
+        self.model = T5EncoderModel.from_pretrained(model_path,
+                                                    cache_dir=cache_dir)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+            add_pooling_layer=pooling_layer)
+        self.finalize_torch()
+
+        def tokenize(self, sequences):
+            inp = self.tokenizer.batch_encode_plus(
+                sequences,
+                add_special_tokens=True,
+                padding=True,
+                is_split_into_words=True,
+                return_tensors="pt",
+            )
+            return inp
