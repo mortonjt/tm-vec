@@ -1,8 +1,10 @@
 import argparse
+import os
 import pickle
 import time
 
 import numpy as np
+import psutil
 
 from tm_vec.embedding import ProtT5Encoder
 
@@ -11,6 +13,7 @@ CACHE_DIR = "/nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapki
 
 # parse args
 parser = argparse.ArgumentParser()
+parser.add_argument("-o", "--output", type=str)
 parser.add_argument("--n_prots", type=int, default=200)
 parser.add_argument("--batch_size", type=int, default=2)
 parser.add_argument("--threads", type=int, default=1)
@@ -71,18 +74,26 @@ def encode(proteins, model):
     return model.batch_embed(proteins)
 
 
+# Measure peak RAM
+batch_ram_usages = []
+batch_times = []
+# only measure RAM for the current process
+process = psutil.Process(os.getpid())
 try:
-    batch_times = []
     for i in range(0, len(proteins), BATCH_SIZE):
+        peak_ram = 0
         batch_proteins = proteins[i:i + BATCH_SIZE]
         (inp, embeddings), timing = encode(batch_proteins, model)
         batch_times.append(timing)
+        ram_usage = process.memory_info().rss / (1024 * 1024)  # Convert to MB
+        ram = max(peak_ram, ram_usage)
+        batch_ram_usages.append(ram)
     benchmark_results["batch_times"] = batch_times
+    benchmark_results["batch_ram_usages"] = batch_ram_usages
 except Exception as e:
     print(f"Error benchmarkin: {e}")
 
 # Store benchmark results in a pickle file
-with open(
-        f"benchmark_{args.batch_size}_{args.threads}_{args.backend}_{args.compile}.pkl",
-        "wb") as f:
+result_filename = f"benchmark_{args.batch_size}_{args.threads}_{args.backend}_{args.compile}.pkl"
+with open(os.path.join(args.output, result_filename), "wb") as f:
     pickle.dump(benchmark_results, f)

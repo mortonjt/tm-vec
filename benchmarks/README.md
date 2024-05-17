@@ -5,8 +5,12 @@ First, we looked in difference in processing different batch sizes.
 ![batch_size](figures/batch_time_vs_batch_size.png)
 ![speedup](figures/speedup_vs_batch_size.png)
 
-Next, we looked how ONNX scales with number of threads. ONNX scales very favourably, although this effect is only noticeable with large batch sizes (>64). Otherwise, the speed gains are not noticeable.
+Next, we looked how ONNX scales with number of threads. The number of threads had only minor effect (5-10%).
 ![threads](figures/batch_time_vs_threads.png)
+
+The RAM usage differs significantly, showing a better scaling of ONNX and an opprotunity to calculate larger batches, while still over 1000x faster than original.
+
+![ram](figures/ram_vs_batch_size.png)
 
 Finally, we looked into loading times for `torch` and `onnxruntime`. The difference is small.
 ![loading_time](figures/model_loading_time.png)
