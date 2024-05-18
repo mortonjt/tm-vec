@@ -3,12 +3,11 @@ import os
 import pickle
 import time
 
-import numpy as np
 import psutil
 
 from tm_vec.embedding import ProtT5Encoder
+from tm_vec.utils import generate_proteins
 
-PROTEIN_ALPHABET = "ACDEFGHIKLMNPQRSTVWY"
 CACHE_DIR = "/nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/cache"
 
 # parse args
@@ -22,18 +21,6 @@ parser.add_argument("--compile", type=int, default=0)
 parser.add_argument("--model_path", type=str)
 parser.add_argument("--tokenizer_path", type=str)
 args = parser.parse_args()
-
-
-# Generate random proteins
-def generate_proteins(n_prots):
-    np.random.seed(42)
-    proteins = []
-    for _ in range(n_prots):
-        prot = "".join(
-            np.random.choice(list(PROTEIN_ALPHABET),
-                             size=np.random.randint(20, 100)))
-        proteins.append(prot)
-    return proteins
 
 
 # Timeit wrapper

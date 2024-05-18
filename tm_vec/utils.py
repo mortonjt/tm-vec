@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import pickle
+from dataclasses import dataclass
 from pathlib import Path
-from dataclasses import dataclass, field
+from typing import Dict, Generator, List, Tuple
+
+import numpy as np
 from pysam import FastxFile
-from typing import Dict, Generator, Tuple, List
 
 
 @dataclass
@@ -58,7 +60,7 @@ class SessionTree:
             pickle.dump(indices, pk)
 
 
-def load_fasta_as_dict(fasta_file: str, max_seqs = None) -> Dict[str, str]:
+def load_fasta_as_dict(fasta_file: str, max_seqs=None) -> Dict[str, str]:
     """
     Load FASTA file as dict of headers to sequences
 
@@ -80,7 +82,8 @@ def load_fasta_as_dict(fasta_file: str, max_seqs = None) -> Dict[str, str]:
 
 
 def create_batched_sequence_datasest(
-    sequences: Dict[str, str], max_tokens_per_batch: int = 1024
+    sequences: Dict[str, str],
+    max_tokens_per_batch: int = 1024
 ) -> Generator[Tuple[List[str], List[str]], None, None]:
 
     batch_headers, batch_sequences, num_tokens = [], [], 0
@@ -93,6 +96,20 @@ def create_batched_sequence_datasest(
         num_tokens += len(seq)
 
     yield batch_headers, batch_sequences
+
+
+# Generate random proteins
+def generate_proteins(n_prots):
+
+    PROTEIN_ALPHABET = "ACDEFGHIKLMNPQRSTVWY"
+    np.random.seed(42)
+    proteins = []
+    for _ in range(n_prots):
+        prot = "".join(
+            np.random.choice(list(PROTEIN_ALPHABET),
+                             size=np.random.randint(20, 100)))
+        proteins.append(prot)
+    return proteins
 
 
 if __name__ == '__main__':

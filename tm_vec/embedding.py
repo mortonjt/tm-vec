@@ -42,7 +42,7 @@ class ProtLM:
             with torch.no_grad():
                 out = self.model(**inp)
 
-            out.last_hidden_state.cpu().numpy()
+            out = out.last_hidden_state.cpu().numpy()
 
             return out
 
@@ -52,6 +52,7 @@ class ProtLM:
         from onnxruntime import SessionOptions
         from optimum.onnxruntime import ORTModel
 
+        self.device = "cpu"
         sess_options = SessionOptions()
         sess_options.intra_op_num_threads = self.threads
         self.model = ORTModel.from_pretrained(
@@ -60,13 +61,14 @@ class ProtLM:
             session_options=sess_options).model
 
         def forward_pass(self, inp):
-            {
+            onnx_input = {
                 self.model.get_inputs()[0].name:
                 inp["input_ids"].cpu().numpy(),
                 self.model.get_inputs()[1].name:
                 inp["attention_mask"].cpu().numpy()
             }
-            out = self.model.run
+            out = self.model.run(["last_hidden_state"], onnx_input)[0]
+
             return out
 
         self.forward_pass = MethodType(forward_pass, self)
