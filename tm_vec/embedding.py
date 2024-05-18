@@ -121,7 +121,8 @@ class ProtT5Encoder(ProtLM):
         self.tokenizer = T5Tokenizer.from_pretrained(
             tokenizer_path,
             cache_dir=cache_dir,
-            local_files_only=local_files_only)
+            local_files_only=local_files_only,
+            legacy=True)
         if backend == "torch":
             from transformers import T5EncoderModel
             self.model = T5EncoderModel.from_pretrained(
@@ -154,15 +155,17 @@ class ESMEncoder(ProtLM):
 
         super().__init__(model_path, tokenizer_path, cache_dir, compile_model,
                          threads)
+        self.tokenizer = EsmTokenizer.from_pretrained(
+            tokenizer_path,
+            cache_dir=cache_dir,
+            local_files_only=local_files_only,
+            legacy=True)
         self.model = EsmModel.from_pretrained(
             model_path,
             cache_dir=cache_dir,
             local_files_only=local_files_only,
             pooling_layer=pooling_layer)
-        self.tokenizer = EsmTokenizer.from_pretrained(
-            tokenizer_path,
-            cache_dir=cache_dir,
-            local_files_only=local_files_only)
+
         self.init_torch()
 
         def remove_special_tokens(self,
