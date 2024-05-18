@@ -1,5 +1,9 @@
 import re
+import warnings
 from types import MethodType
+
+# silence future warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 class ProtLM:
