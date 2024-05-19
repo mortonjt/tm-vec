@@ -17,13 +17,14 @@ module load cudnn/8.9.2.26
 export CUDA_HOME=$CUDA_BASE
 
 # copy data to TMPDIR
-cp /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/tmvec_data/train_embeddings.h5py $TMPDIR
-cp /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/tmvec_data/tm_pairs.tsv $TMPDIR
+export DATADIR=/nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/tmvec_data
+cp $DATADIR/protT5_quantized_train_embeddings.h5py $TMPDIR
+cp $DATADIR/tm_pairs.tsv $TMPDIR
 
 export METAG_RANDOM_SEED=123
-export METAG_DMODEL=2560
-export METAG_NLAYER=4
-export METAG_NHEADS=4
+export METAG_DMODEL=1024
+export METAG_NLAYER=2
+export METAG_NHEADS=2
 export METAG_IN_DIM=2048
 export METAG_WARMUP_STEPS=400
 export METAG_TRAIN_PROP=0.90
@@ -31,11 +32,11 @@ export METAG_VAL_PROP=0.05
 export METAG_TEST_PROP=0.05
 
 export METAG_LR=0.0001
-export METAG_BSIZE=16
+export METAG_BSIZE=48
 export METAG_SESSION=/nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/tmvec_train/transformer_lr${METAG_LR}_dmodel${METAG_DMODEL}_nlayer${METAG_NLAYER}_cosine_sigmoid_big_data
 export METAG_RANDOM_SEED=$RANDOM
 export EPOCHS=40
-export METAG_DATA=$TMPDIR/train_embeddings.h5py
+export METAG_DATA=$TMPDIR/protT5_quantized_train_embeddings.h5py
 export METAG_PAIRS=$TMPDIR/tm_pairs.tsv
 
 export PATH="$PATH:/cluster/apps/sfos/bin:/cluster/home/vbezshapkin/miniconda3/bin"

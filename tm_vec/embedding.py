@@ -53,16 +53,24 @@ class ProtLM:
         self.forward_pass = MethodType(forward_pass, self)
 
     def init_onnx(self):
-        from onnxruntime import SessionOptions
+        import onnxruntime as rt
         from optimum.onnxruntime import ORTModel
 
+        # TODO: troubleshot ONNX run on GPU
         self.device = "cpu"
-        sess_options = SessionOptions()
+        sess_options = rt.SessionOptions()
         sess_options.intra_op_num_threads = self.threads
-        self.model = ORTModel.from_pretrained(
-            self.model_path,
-            model_save_dir=self.cache_dir,
-            session_options=sess_options).model
+        sess_options.inter_op_num_threads = self.threads
+        sess_options.execution_mode = rt.ExecutionMode.ORT_SEQUENTIAL
+        sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_ALL
+        self.model = ORTModel.from_pretrained(self.model_path,
+                                              model_save_dir=self.cache_dir,
+                                              session_options=sess_options,
+                                              providers=[
+                                                  "TensorrtExecutionProvider",
+                                                  "CUDAExecutionProvider",
+                                                  "CPUExecutionProvider"
+                                              ]).model
 
         def forward_pass(self, inp):
             onnx_input = {
@@ -85,6 +93,7 @@ class ProtLM:
         return inp
 
     def batch_embed(self, sequences):
+
         inp = self.tokenize(sequences).to(self.device)
         embs = self.forward_pass(inp)
 

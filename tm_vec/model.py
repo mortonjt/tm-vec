@@ -1,18 +1,20 @@
-import json
 import inspect
-from functools import partial
-from dataclasses import dataclass, asdict
+import json
+from dataclasses import asdict, dataclass
 
+import lightning as L
 import torch
 from torch import nn
-import lightning as L
 
 
 @dataclass
 class Config:
     def isolate(self, config):
         specifics = inspect.signature(config).parameters
-        my_specifics = {k: v for k, v in asdict(self).items() if k in specifics}
+        my_specifics = {
+            k: v
+            for k, v in asdict(self).items() if k in specifics
+        }
         return config(**my_specifics)
 
     def to_json(self, filename):
@@ -36,7 +38,7 @@ class trans_basic_block_Config(Config):
     dim_feedforward: int = 2048
     out_dim: int = 512
     dropout: float = 0.1
-    activation: str = 'relu'
+    activation: str = 'gelu'
     # data params
     lr0: float = 0.0001
     warmup_steps: int = 300
@@ -54,11 +56,17 @@ class trans_basic_block(L.LightningModule):
         self.config = config
 
         # build encoder
-        encoder_args = {k: v for k, v in asdict(config).items() if k in inspect.signature(nn.TransformerEncoderLayer).parameters}
+        encoder_args = {
+            k: v
+            for k, v in asdict(config).items()
+            if k in inspect.signature(nn.TransformerEncoderLayer).parameters
+        }
         num_layers = config.num_layers
 
-        encoder_layer = nn.TransformerEncoderLayer(batch_first=True, **encoder_args)
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        encoder_layer = nn.TransformerEncoderLayer(batch_first=True,
+                                                   **encoder_args)
+        self.encoder = nn.TransformerEncoder(encoder_layer,
+                                             num_layers=num_layers)
 
         self.dropout = nn.Dropout(self.config.dropout)
         self.mlp = nn.Linear(self.config.d_model, self.config.out_dim)
@@ -67,47 +75,62 @@ class trans_basic_block(L.LightningModule):
         self.l1_loss = nn.L1Loss(reduction='mean')
 
     def forward(self, x, src_mask, src_key_padding_mask):
-        x = self.encoder(x, mask=src_mask, src_key_padding_mask=src_key_padding_mask)
+        x = self.encoder(x,
+                         mask=src_mask,
+                         src_key_padding_mask=src_key_padding_mask)
         lens = torch.logical_not(src_key_padding_mask).sum(dim=1)
         x = x.sum(dim=1) / lens.unsqueeze(1)
         x = self.dropout(x)
         x = self.mlp(x)
         return x
 
-
     def distance_loss_euclidean(self, output_seq1, output_seq2, tm_score):
         pdist_seq = nn.PairwiseDistance(p=2)
         dist_seq = pdist_seq(output_seq1, output_seq2)
-        dist_tm = torch.cdist(dist_seq.unsqueeze(0), tm_score.unsqueeze(0), p=2)
+        dist_tm = torch.cdist(dist_seq.unsqueeze(0),
+                              tm_score.unsqueeze(0),
+                              p=2)
         return dist_tm
 
     def distance_loss_sigmoid(self, output_seq1, output_seq2, tm_score):
         dist_seq = output_seq1 - output_seq2
         dist_seq = torch.sigmoid(dist_seq).mean(1)
-        dist_tm = torch.cdist(dist_seq.unsqueeze(0), tm_score.unsqueeze(0), p=2)
+        dist_tm = torch.cdist(dist_seq.unsqueeze(0),
+                              tm_score.unsqueeze(0),
+                              p=2)
         return dist_tm
 
     def distance_loss(self, output_seq1, output_seq2, tm_score):
         dist_seq = self.cos(output_seq1, output_seq2)
-        dist_tm = self.l1_loss(dist_seq.unsqueeze(0), tm_score.float().unsqueeze(0))
+        dist_tm = self.l1_loss(dist_seq.unsqueeze(0),
+                               tm_score.float().unsqueeze(0))
         return dist_tm
 
     def training_step(self, train_batch, batch_idx):
         sequence_1, sequence_2, pad_mask_1, pad_mask_2, tm_score = train_batch
-        out_seq1 = self.forward(sequence_1, src_mask=None, src_key_padding_mask=pad_mask_1)
-        out_seq2 = self.forward(sequence_2, src_mask=None, src_key_padding_mask=pad_mask_2)
+        out_seq1 = self.forward(sequence_1,
+                                src_mask=None,
+                                src_key_padding_mask=pad_mask_1)
+        out_seq2 = self.forward(sequence_2,
+                                src_mask=None,
+                                src_key_padding_mask=pad_mask_2)
         loss = self.distance_loss(out_seq1, out_seq2, tm_score)
         self.log('train_loss', loss, prog_bar=True, sync_dist=True)
         return loss
 
     def validation_step(self, val_batch, batch_idx):
         sequence_1, sequence_2, pad_mask_1, pad_mask_2, tm_score = val_batch
-        out_seq1 = self.forward(sequence_1, src_mask=None, src_key_padding_mask=pad_mask_1)
-        out_seq2 = self.forward(sequence_2, src_mask=None, src_key_padding_mask=pad_mask_2)
+        out_seq1 = self.forward(sequence_1,
+                                src_mask=None,
+                                src_key_padding_mask=pad_mask_1)
+        out_seq2 = self.forward(sequence_2,
+                                src_mask=None,
+                                src_key_padding_mask=pad_mask_2)
         loss = self.distance_loss(out_seq1, out_seq2, tm_score)
         self.log('val_loss', loss, prog_bar=True, sync_dist=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.lr0, eps=1e-4)
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.lr0)
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
+                                                                  T_max=10)
         return [optimizer], [lr_scheduler]
