@@ -146,13 +146,13 @@ class ProtT5Encoder(ProtLM):
         elif backend == "onnx":
             self.init_onnx()
 
-        def tokenize(self, sequences):
-            seqs = [
-                " ".join(list(re.sub(r"[UZOB]", "X", seq)))
-                for seq in sequences
-            ]
-            inp = super().tokenize(seqs)
-            return inp
+    def tokenize(self, sequences):
+        seqs = [
+            " ".join(list(re.sub(r"[UZOB]", "X", seq))) for seq in sequences
+        ]
+        print(seqs)
+        inp = super().tokenize(seqs)
+        return inp
 
 
 class ESMEncoder(ProtLM):
