@@ -54,10 +54,11 @@ class ProtLM:
 
     def init_onnx(self):
         import onnxruntime as rt
+        import torch
         from optimum.onnxruntime import ORTModel
 
         # TODO: troubleshot ONNX run on GPU
-        self.device = "cpu"
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         sess_options = rt.SessionOptions()
         sess_options.intra_op_num_threads = self.threads
         sess_options.inter_op_num_threads = self.threads
@@ -150,7 +151,7 @@ class ProtT5Encoder(ProtLM):
         seqs = [
             " ".join(list(re.sub(r"[UZOB]", "X", seq))) for seq in sequences
         ]
-        print(seqs)
+
         inp = super().tokenize(seqs)
         return inp
 

@@ -60,7 +60,8 @@ embedder = ProtT5Encoder(
     args.tokenizer_path,
     cache_dir=
     "/nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/cache",
-    backend="onnx",
+    backend="torch",
+    compile_model=True,
     local_files_only=True)
 
 with h5py.File(args.output_file, "w") as f:
