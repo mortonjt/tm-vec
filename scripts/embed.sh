@@ -25,9 +25,9 @@ module load cudnn/8.9.2.26
 
 python /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/scripts/bulk_embed.py \
     --fasta-file /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/tmvec_data/train.fasta.gz \
-    --model-path /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/onnx/prot_t5_xl_uniref50_onnx_quantized \
+    --model-path /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/cache/models--Rostlab--prot_t5_xl_uniref50/snapshots/973be27c52ee6474de9c945952a8008aeb2a1a73 \
     --tokenizer-path /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/cache/models--Rostlab--prot_t5_xl_uniref50/snapshots/973be27c52ee6474de9c945952a8008aeb2a1a73 \
-    --max-tokens-per-batch 4096 \
+    --max-tokens-per-batch 8096 \
     --output-file $OUTPUT
 
 echo "Copying results to NFS"

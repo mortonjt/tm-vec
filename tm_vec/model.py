@@ -37,7 +37,7 @@ class trans_basic_block_Config(Config):
     num_layers: int = 2
     dim_feedforward: int = 2048
     out_dim: int = 512
-    dropout: float = 0.1
+    dropout: float = 0.2
     activation: str = 'gelu'
     # data params
     lr0: float = 0.0001
@@ -130,7 +130,9 @@ class trans_basic_block(L.LightningModule):
         self.log('val_loss', loss, prog_bar=True, sync_dist=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.lr0)
+        optimizer = torch.optim.AdamW(self.parameters(),
+                                      betas=(0.99, 0.98),
+                                      lr=self.config.lr0)
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
                                                                   T_max=10)
         return [optimizer], [lr_scheduler]
