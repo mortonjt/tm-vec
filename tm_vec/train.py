@@ -12,7 +12,7 @@ from tm_vec.model import trans_basic_block_Config
 from tm_vec.utils import SessionTree
 
 
-#Comand line
+# Comand line
 def arguments():
     parser = argparse.ArgumentParser(
         description="Train a structural embedding model")
@@ -108,7 +108,7 @@ if __name__ == '__main__':
                                 collate_fn=collate_fn,
                                 num_workers=args.num_workers)
 
-    val_check_interval = 0.05
+    val_check_interval = 0.2
     effective_batch_size = args.gpus * args.nodes * args.batch_size
     every_n_train_steps = int(
         len(train_ds) * val_check_interval) // effective_batch_size
@@ -123,10 +123,13 @@ if __name__ == '__main__':
         every_n_train_steps=every_n_train_steps,
         save_top_k=5,
         save_weights_only=False,
-        save_last=True)
+        save_last=True,
+        save_on_train_epoch_end=True)
+
+    progress_bar = L.pytorch.callbacks.TQDMProgressBar(refresh_rate=100)
 
     # logger = pl.loggers.TensorBoardLogger(tree.logs)
-    logger = WandbLogger(project="tm_vec",
+    logger = WandbLogger(project="tm_vec_esm",
                          log_model=False,
                          save_dir=tree.logs,
                          offline=True,
@@ -134,7 +137,7 @@ if __name__ == '__main__':
     # Trainer
     trainer = L.Trainer(strategy='ddp',
                         accelerator='gpu',
-                        callbacks=[ckpt],
+                        callbacks=[ckpt, progress_bar],
                         logger=logger,
                         precision="16-mixed",
                         devices=args.gpus,
