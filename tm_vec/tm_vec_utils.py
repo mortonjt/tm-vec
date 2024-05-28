@@ -1,14 +1,17 @@
-import numpy as np
+import re
 
+import numpy as np
 import torch
 from torch import nn
-import re
 from tqdm import tqdm
+
 
 # Function to extract ProtTrans embedding for a sequence
 def featurize_prottrans(sequences, model, tokenizer, device):
     seqs = [" ".join(list(re.sub(r"[UZOB]", "X", seq))) for seq in sequences]
-    ids = tokenizer.batch_encode_plus(seqs, add_special_tokens=True, padding=True)
+    ids = tokenizer.batch_encode_plus(seqs,
+                                      add_special_tokens=True,
+                                      padding=True)
     input_ids = torch.tensor(ids['input_ids']).to(device)
     attention_mask = torch.tensor(ids['attention_mask']).to(device)
 
@@ -23,15 +26,17 @@ def featurize_prottrans(sequences, model, tokenizer, device):
         seq_emd = embedding[seq_num][:seq_len - 1]
         features.append(seq_emd)
 
-    return features
-
+    return features[0]
 
 
 # Embed a protein using tm_vec (takes as input a prottrans embedding)
 def embed_tm_vec(prottrans_embedding, model_deep, device):
     prot_embedding = torch.tensor(prottrans_embedding).unsqueeze(0).to(device)
-    padding = torch.zeros(prot_embedding.shape[0:2]).type(torch.BoolTensor).to(device)
-    tm_vec_embedding = model_deep(prot_embedding, src_mask=None, src_key_padding_mask=padding)
+    padding = torch.zeros(prot_embedding.shape[0:2]).type(
+        torch.BoolTensor).to(device)
+    tm_vec_embedding = model_deep(prot_embedding,
+                                  src_mask=None,
+                                  src_key_padding_mask=padding)
 
     return (tm_vec_embedding.cpu().detach().numpy())
 
@@ -44,15 +49,15 @@ def cosine_similarity_tm(output_seq1, output_seq2):
     return (dist_seq)
 
 
-def encode(sequences, model_deep, model, tokenizer, device, batch_size = 16):
-    embed_all_sequences=[]
-    for i in tqdm(range(0, len(sequences), batch_size), desc="Embedding sequences", miniters=len(sequences) // 1000):
-        protrans_sequences = featurize_prottrans(sequences[i:i + batch_size], model, tokenizer, device)
+def encode(sequences, model_deep, model, tokenizer, device, batch_size=16):
+    embed_all_sequences = []
+    for i in tqdm(range(0, len(sequences), batch_size),
+                  desc="Embedding sequences",
+                  miniters=len(sequences) // 1000):
+        protrans_sequences = featurize_prottrans(sequences[i:i + batch_size],
+                                                 model, tokenizer, device)
         for seq in protrans_sequences:
             embedded_sequence = embed_tm_vec(seq, model_deep, device)
             embed_all_sequences.append(embedded_sequence)
 
     return np.concatenate(embed_all_sequences, axis=0)
-
-
-
