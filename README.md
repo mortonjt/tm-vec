@@ -30,7 +30,7 @@ tmvec build-db \
 To query a sequences against a database use:
 ```
 tmvec search \
-    --query /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/small_embed.fasta \
-    --database /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/db_test/small_fasta.npz \
+    --query small_embed.fasta \
+    --database db_test/small_fasta.npz \
     --output db_test/result.tsv
 ```
