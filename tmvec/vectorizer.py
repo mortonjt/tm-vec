@@ -2,9 +2,10 @@ from typing import List
 
 import numpy as np
 import torch
-from tm_vec.embedding import ProtT5Encoder
-from tm_vec.model import trans_basic_block, trans_basic_block_Config
 from tqdm import tqdm
+
+from tmvec.embedding import ProtT5Encoder
+from tmvec.model import trans_basic_block, trans_basic_block_Config
 
 
 class TMVec:
@@ -72,7 +73,7 @@ class TMVec:
             embedded_sequence = self.embedding_to_vector(prottrans_embedding)
             embed_all_sequences.append(embedded_sequence)
 
-        return embed_all_sequences
+        return np.concatenate(embed_all_sequences, axis=0)
 
     def delete_vectorizer(self):
         """

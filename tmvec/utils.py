@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Generator, List, Tuple
 
 import numpy as np
+import pandas as pd
 import torch
 from pysam import FastxFile
 
@@ -139,6 +140,58 @@ def cosine_similarity(output_seq1: torch.Tensor,
     dist_seq = cos(output_seq1, output_seq2)
 
     return dist_seq
+
+
+def save_results(values, near_ids, headers, output_format, output_file):
+    """
+    Outputs the results based on the specified format.
+
+    Args:
+        values (numpy.ndarray): An array containing the values (e.g., scores) for each query.
+        near_ids (numpy.ndarray): A 2D array containing the metadata for the nearest neighbors.
+        headers (list or numpy.ndarray): A list or array containing the metadata headers.
+        output_format (str): The desired output format (e.g., 'tabular').
+        output_file (str): The file path to write the output.
+    """
+    if output_format == 'tabular':
+        save_tabular_format(values, near_ids, headers, output_file)
+
+
+def save_tabular_format(values, near_ids, headers, output_file):
+    """
+    Outputs the results in a tabular format.
+
+    Args:
+        values (numpy.ndarray): An array containing the values (e.g., scores) for each query.
+        near_ids (numpy.ndarray): A 2D array containing the metadata for the nearest neighbors.
+        headers (list or numpy.ndarray): A list or array containing the metadata headers.
+        output_file (str): The file path to write the output.
+    """
+    nids = pd.DataFrame(near_ids, index=headers)
+    nids.index.name = 'query_id'
+    nids = pd.melt(nids.reset_index(),
+                   id_vars='query_id',
+                   var_name='rank',
+                   value_name='database_id')
+    nids['rank'] = nids['rank'] + 1
+
+    tms = pd.DataFrame(values, index=headers)
+    tms = pd.melt(tms, var_name='query_id', value_name='tm-score')
+    nids = pd.concat((nids, tms[['tm-score']]), axis=1)
+    nids = nids.sort_values(['query_id', 'rank'])
+    nids.to_csv(output_file, sep='\t', index=None)
+
+
+def save_embeddings(queries, output_embeddings_file):
+    """
+    Outputs the embeddings to a file.
+
+    Args:
+        queries (numpy.ndarray): An array containing the query embeddings.
+        output_embeddings_file (str): The file path to write the embeddings.
+    """
+    if output_embeddings_file is not None:
+        np.save(output_embeddings_file, queries)
 
 
 if __name__ == '__main__':
