@@ -1,16 +1,32 @@
 import argparse
 import logging
+import sys
 
 import h5py
-from tm_vec.embedding import ProtT5Encoder
-from tm_vec.utils import create_batched_sequence_datasest, load_fasta_as_dict
 from tqdm import tqdm
 
-logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
+from tmvec.embedding import ProtT5Encoder
+from tmvec.utils import create_batched_sequence_datasest, load_fasta_as_dict
+
 logger = logging.getLogger(__name__)
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter(
+    '[%(asctime)s] %(module)s.%(funcName)s %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
+# embedder = ESMEncoder(
+#     model_path=args.model_local_path,
+#     cache_dir=
+#     "/nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/cache",
+#     device=device,
+#     local_files_only=True,
+#     pooling_layer=False)
 
 # create arguments
-parser = argparse.ArgumentParser(description="Embed sequences using ESM")
+parser = argparse.ArgumentParser(description="Embed sequences using ProtLM.")
 parser.add_argument("--fasta-file",
                     type=str,
                     required=True,
@@ -31,14 +47,7 @@ parser.add_argument("--max-tokens-per-batch",
                     type=int,
                     default=1024,
                     help="Maximum tokens per batch.")
-
-# embedder = ESMEncoder(
-#     model_path=args.model_local_path,
-#     cache_dir=
-#     "/nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/cache",
-#     device=device,
-#     local_files_only=True,
-#     pooling_layer=False)
+args = parser.parse_args()
 
 
 def main(args):
