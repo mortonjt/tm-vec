@@ -124,7 +124,7 @@ class ProtT5Encoder(ProtLM):
     def __init__(self,
                  model_path,
                  tokenizer_path,
-                 cache_dir,
+                 cache_dir=None,
                  backend="torch",
                  compile_model=False,
                  local_files_only=True,

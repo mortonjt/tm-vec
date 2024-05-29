@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Generator, List, Tuple
 
 import numpy as np
+import torch
 from pysam import FastxFile
 
 
@@ -60,12 +61,14 @@ class SessionTree:
             pickle.dump(indices, pk)
 
 
-def load_fasta_as_dict(fasta_file: str, max_seqs=None) -> Dict[str, str]:
+def load_fasta_as_dict(fasta_file: str, sort: bool = True) -> Dict[str, str]:
     """
     Load FASTA file as dict of headers to sequences
 
     Args:
         fasta_file (str): Path to FASTA file. Can be compressed.
+        sorted (bool): Sort sequences by length.
+
 
     Returns:sq
         Dict[str, str]: Dictionary of FASTA entries sorted by length.
@@ -75,8 +78,9 @@ def load_fasta_as_dict(fasta_file: str, max_seqs=None) -> Dict[str, str]:
     with FastxFile(fasta_file) as f:
         for i, entry in enumerate(f):
             seqs_dict[entry.name] = entry.sequence
-            if max_seqs and i == max_seqs:
-                break
+
+    if sort:
+        seqs_dict = dict(sorted(seqs_dict.items(), key=lambda x: len(x[1])))
 
     return seqs_dict
 
@@ -110,6 +114,26 @@ def generate_proteins(n_prots):
                              size=np.random.randint(20, 100)))
         proteins.append(prot)
     return proteins
+
+
+# Predict the TM-score for a pair of proteins (inputs are TM-Vec embeddings)
+def cosine_similarity(output_seq1: torch.Tensor,
+                      output_seq2: torch.Tensor) -> torch.Tensor:
+    """
+    Calculate the cosine similarity between two protein embeddings
+
+    Args:
+        output_seq1 (torch.Tensor): Protein embedding for sequence 1
+        output_seq2 (torch.Tensor): Protein embedding for sequence 2
+
+    Returns:
+        torch.Tensor: Cosine similarity between the two embeddings
+    """
+
+    cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+    dist_seq = cos(output_seq1, output_seq2)
+
+    return dist_seq
 
 
 if __name__ == '__main__':

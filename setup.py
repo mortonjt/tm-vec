@@ -24,6 +24,7 @@ extras = {
         'wandb',
         'matplotlib',
         'pre-commit',
+        'pandas',
     ],
     'deepblast': ['deepblast']
 }
@@ -36,12 +37,12 @@ setup(name='tm-vec',
       maintainer_email="tymorhamamsy@gmail.com",
       packages=find_packages(),
       install_requires=[
-          'numpy', 'pandas', 'torch', 'lightning', 'pysam', 'transformers',
-          'SentencePiece'
+          'numpy', 'torch', 'lightning', 'pysam', 'transformers',
+          'SentencePiece', 'faiss-cpu'
       ],
       extras_require=extras,
       scripts=[
-          'scripts/tmvec-build-database',
+          'scripts/build_database.py',
           'scripts/tmvec-search',
       ],
       classifiers=classifiers,
