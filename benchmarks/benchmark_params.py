@@ -3,8 +3,8 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-from tm_vec.embedding import ProtT5Encoder
-from tm_vec.utils import generate_proteins
+from tmvec.embedding import ProtT5Encoder
+from tmvec.utils import generate_proteins
 
 output_folder = "benchmark_data"
 tokenizer = "rostlab/prot_t5_xl_uniref50"
