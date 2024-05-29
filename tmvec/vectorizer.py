@@ -2,10 +2,9 @@ from typing import List
 
 import numpy as np
 import torch
-from tqdm import tqdm
-
 from tm_vec.embedding import ProtT5Encoder
 from tm_vec.model import trans_basic_block, trans_basic_block_Config
+from tqdm import tqdm
 
 
 class TMVec:
@@ -74,3 +73,12 @@ class TMVec:
             embed_all_sequences.append(embedded_sequence)
 
         return embed_all_sequences
+
+    def delete_vectorizer(self):
+        """
+        Removes TMVec model to free up memory
+        for alignment model.
+        """
+
+        del self.model
+        torch.cuda.empty_cache()

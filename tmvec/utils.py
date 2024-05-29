@@ -61,14 +61,16 @@ class SessionTree:
             pickle.dump(indices, pk)
 
 
-def load_fasta_as_dict(fasta_file: str, sort: bool = True) -> Dict[str, str]:
+def load_fasta_as_dict(fasta_file: str,
+                       sort: bool = True,
+                       max_len: int = None) -> Dict[str, str]:
     """
     Load FASTA file as dict of headers to sequences
 
     Args:
         fasta_file (str): Path to FASTA file. Can be compressed.
         sorted (bool): Sort sequences by length.
-
+        max_len (int): Maximum length of sequences to include.
 
     Returns:sq
         Dict[str, str]: Dictionary of FASTA entries sorted by length.
@@ -81,6 +83,9 @@ def load_fasta_as_dict(fasta_file: str, sort: bool = True) -> Dict[str, str]:
 
     if sort:
         seqs_dict = dict(sorted(seqs_dict.items(), key=lambda x: len(x[1])))
+
+    if max_len:
+        seqs_dict = {k: v for k, v in seqs_dict.items() if len(v) <= max_len}
 
     return seqs_dict
 

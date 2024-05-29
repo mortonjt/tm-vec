@@ -5,11 +5,10 @@ from pathlib import Path
 
 import lightning as L
 from lightning.pytorch.loggers import WandbLogger
-from torch.utils.data import DataLoader
-
 from tm_vec.dataset import collate_fn, construct_datasets
 from tm_vec.model import trans_basic_block_Config
 from tm_vec.utils import SessionTree
+from torch.utils.data import DataLoader
 
 
 # Comand line
