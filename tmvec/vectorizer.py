@@ -26,7 +26,7 @@ class TMVec:
             "cuda" if torch.cuda.is_available() else "cpu")
         self.backend = None
         self.compile_model = None
-        self.config = trans_basic_block_Config.from_json(self.config_path)
+        self.config = trans_basic_block_Config.from_json_file(self.config_path)
         self.model = trans_basic_block.load_from_checkpoint(
             self.model_path, config=self.config, map_location=self.device)
         if self.protlm_tokenizer_path is None:

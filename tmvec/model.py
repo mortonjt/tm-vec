@@ -1,80 +1,109 @@
 import inspect
-import json
-from dataclasses import asdict, dataclass
+from typing import Union
 
 import lightning as L
 import torch
+from huggingface_hub import PyTorchModelHubMixin
 from torch import nn
+from transformers import PretrainedConfig
 
 
-@dataclass
-class Config:
-    def isolate(self, config):
-        specifics = inspect.signature(config).parameters
-        my_specifics = {
-            k: v
-            for k, v in asdict(self).items() if k in specifics
-        }
-        return config(**my_specifics)
-
-    def to_json(self, filename):
-        config = json.dumps(asdict(self), indent=2)
-        with open(filename, 'w') as f:
-            f.write(config)
-
-    @classmethod
-    def from_json(cls, filename):
-        with open(filename, 'r') as f:
-            js = json.loads(f.read())
-        config = cls(**js)
-        return config
-
-
-@dataclass
-class trans_basic_block_Config(Config):
-    d_model: int = 1024
-    nhead: int = 4
-    num_layers: int = 2
-    dim_feedforward: int = 2048
-    out_dim: int = 512
-    dropout: float = 0.2
-    activation: str = 'gelu'
-    # data params
-    lr0: float = 0.0001
-    warmup_steps: int = 300
+class TransformerEncoderModuleConfig(PretrainedConfig):
+    def __init__(self,
+                 d_model=1024,
+                 nhead=4,
+                 num_layers=2,
+                 dim_feedforward=2048,
+                 out_dim=512,
+                 dropout=0.2,
+                 activation='gelu',
+                 lr0=0.0001,
+                 warmup_steps=300,
+                 **kwargs):
+        self.d_model = d_model
+        self.nhead = nhead
+        self.num_layers = num_layers
+        self.dim_feedforward = dim_feedforward
+        self.out_dim = out_dim
+        self.dropout = dropout
+        self.activation = activation
+        self.lr0 = lr0
+        self.warmup_steps = warmup_steps
+        super().__init__(**kwargs)
+        self.to_dict()
 
     def build(self):
-        return trans_basic_block(self)
+        return TransformerEncoderModule(self)
+
+    def to_dict(self):
+        return self.__dict__
 
 
-class trans_basic_block(L.LightningModule):
+class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
     """
     TransformerEncoderLayer with preset parameters followed by global pooling and dropout
     """
-    def __init__(self, config: trans_basic_block_Config):
-        super().__init__()
-        self.config = config
+    config_class = TransformerEncoderModuleConfig
+
+    def __init__(self, config: Union[TransformerEncoderModuleConfig, dict]):
+        """
+        Initialize the TransformerEncoderModule.
+
+        Args:
+            config: TransformerEncoderModuleConfig instance or a dictionary
+                containing the configuration parameters.
+
+        Examples:
+            >>> # load model locally
+            >>> config = TransformerEncoderModuleConfig()
+            >>> model = TransformerEncoderModule(config)
+            >>> # load model from HuggingFace Hub
+            >>> model = TransformerEncoderModule.from_pretrained("scikit-bio/tmvec")
+
+        """
+
+        super(L.LightningModule, self).__init__()
+        if isinstance(config, dict):
+            self.config = config
+        elif isinstance(config, TransformerEncoderModuleConfig):
+            self.config = config.to_dict()
+        else:
+            raise ValueError("Invalid config type")
 
         # build encoder
         encoder_args = {
             k: v
-            for k, v in asdict(config).items()
+            for k, v in config.items()
             if k in inspect.signature(nn.TransformerEncoderLayer).parameters
         }
-        num_layers = config.num_layers
+
+        num_layers = config['num_layers']
 
         encoder_layer = nn.TransformerEncoderLayer(batch_first=True,
                                                    **encoder_args)
         self.encoder = nn.TransformerEncoder(encoder_layer,
                                              num_layers=num_layers)
 
-        self.dropout = nn.Dropout(self.config.dropout)
-        self.mlp = nn.Linear(self.config.d_model, self.config.out_dim)
+        self.dropout = nn.Dropout(self.config['dropout'])
+        self.mlp = nn.Linear(self.config['d_model'], self.config['out_dim'])
 
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
         self.l1_loss = nn.L1Loss(reduction='mean')
 
-    def forward(self, x, src_mask, src_key_padding_mask):
+    def forward(self, x: torch.Tensor, src_mask: torch.Tensor,
+                src_key_padding_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the TransformerEncoderModule.
+
+        Args:
+            x (torch.Tensor): Input tensor
+            src_mask (torch.Tensor): Source mask tensor
+            src_key_padding_mask (torch.Tensor): Source key padding mask tensor
+
+        Returns:
+            torch.Tensor: Output tensor
+        """
+
         x = self.encoder(x,
                          mask=src_mask,
                          src_key_padding_mask=src_key_padding_mask)
@@ -84,7 +113,21 @@ class trans_basic_block(L.LightningModule):
         x = self.mlp(x)
         return x
 
-    def distance_loss_euclidean(self, output_seq1, output_seq2, tm_score):
+    def distance_loss_euclidean(self, output_seq1: torch.Tensor,
+                                output_seq2: torch.Tensor,
+                                tm_score: torch.Tensor) -> torch.Tensor:
+        """
+        Calculate the Euclidean distance loss.
+
+        Args:
+            output_seq1 (torch.Tensor): Output sequence 1 tensor
+            output_seq2 (torch.Tensor): Output sequence 2 tensor
+            tm_score (torch.Tensor): TM score tensor
+
+        Returns:
+            torch.Tensor: Distance loss tensor
+        """
+
         pdist_seq = nn.PairwiseDistance(p=2)
         dist_seq = pdist_seq(output_seq1, output_seq2)
         dist_tm = torch.cdist(dist_seq.unsqueeze(0),
@@ -92,7 +135,21 @@ class trans_basic_block(L.LightningModule):
                               p=2)
         return dist_tm
 
-    def distance_loss_sigmoid(self, output_seq1, output_seq2, tm_score):
+    def distance_loss_sigmoid(self, output_seq1: torch.Tensor,
+                              output_seq2: torch.Tensor,
+                              tm_score: torch.Tensor) -> torch.Tensor:
+        """
+        Calculate the sigmoid distance loss.
+
+        Args:
+            output_seq1 (torch.Tensor): Output sequence 1 tensor
+            output_seq2 (torch.Tensor): Output sequence 2 tensor
+            tm_score (torch.Tensor): TM score tensor
+
+        Returns:
+            torch.Tensor: Distance loss tensor
+        """
+
         dist_seq = output_seq1 - output_seq2
         dist_seq = torch.sigmoid(dist_seq).mean(1)
         dist_tm = torch.cdist(dist_seq.unsqueeze(0),
@@ -100,13 +157,38 @@ class trans_basic_block(L.LightningModule):
                               p=2)
         return dist_tm
 
-    def distance_loss(self, output_seq1, output_seq2, tm_score):
+    def distance_loss(self, output_seq1: torch.Tensor,
+                      output_seq2: torch.Tensor,
+                      tm_score: torch.Tensor) -> torch.Tensor:
+        """
+        Calculate the cosine similarity distance loss.
+        Args:
+            output_seq1 (torch.Tensor): Output sequence 1 tensor
+            output_seq2 (torch.Tensor): Output sequence 2 tensor
+            tm_score (torch.Tensor): TM score tensor
+
+        Returns:
+            torch.Tensor: Distance loss tensor
+        """
+
         dist_seq = self.cos(output_seq1, output_seq2)
         dist_tm = self.l1_loss(dist_seq.unsqueeze(0),
                                tm_score.float().unsqueeze(0))
         return dist_tm
 
-    def training_step(self, train_batch, batch_idx):
+    def training_step(self, train_batch: tuple,
+                      batch_idx: int) -> torch.Tensor:
+        """
+        Training step.
+
+        Args:
+            train_batch (tuple): Training batch
+            batch_idx (int): Batch index
+
+        Returns:
+            torch.Tensor: Loss tensor
+        """
+
         sequence_1, sequence_2, pad_mask_1, pad_mask_2, tm_score = train_batch
         out_seq1 = self.forward(sequence_1,
                                 src_mask=None,
@@ -118,7 +200,15 @@ class trans_basic_block(L.LightningModule):
         self.log('train_loss', loss, prog_bar=True, sync_dist=True)
         return loss
 
-    def validation_step(self, val_batch, batch_idx):
+    def validation_step(self, val_batch: tuple, batch_idx: int) -> None:
+        """
+        Validation step.
+
+        Args:
+            val_batch (tuple): Validation batch
+            batch_idx (int): Batch index
+        """
+
         sequence_1, sequence_2, pad_mask_1, pad_mask_2, tm_score = val_batch
         out_seq1 = self.forward(sequence_1,
                                 src_mask=None,
@@ -129,7 +219,14 @@ class trans_basic_block(L.LightningModule):
         loss = self.distance_loss(out_seq1, out_seq2, tm_score)
         self.log('val_loss', loss, prog_bar=True, sync_dist=True)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> tuple:
+        """
+        Configure the optimizer and scheduler.
+
+        Returns:
+            list: List of optimizers
+            list: List of schedulers
+        """
         optimizer = torch.optim.AdamW(self.parameters(),
                                       betas=(0.99, 0.98),
                                       lr=self.config.lr0)
