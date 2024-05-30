@@ -8,7 +8,7 @@ from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader
 
 from tmvec.dataset import collate_fn, construct_datasets
-from tmvec.model import trans_basic_block_Config
+from tmvec.model import TransformerEncoderModuleConfig
 from tmvec.utils import SessionTree
 
 
@@ -64,7 +64,7 @@ def arguments():
                         help="Number of workers for the data loader")
 
     # Now add the transformer model arguments
-    for field in fields(trans_basic_block_Config):
+    for field in fields(TransformerEncoderModuleConfig):
         parser.add_argument(f"--{field.name}",
                             default=field.default,
                             type=field.type)
@@ -72,9 +72,9 @@ def arguments():
     return parser.parse_args()
 
 
-def collect_trans_block_arguments(args) -> trans_basic_block_Config:
+def collect_trans_block_arguments(args) -> TransformerEncoderModuleConfig:
     trans_block_conf_args = inspect.signature(
-        trans_basic_block_Config).parameters
+        TransformerEncoderModuleConfig).parameters
     return {k: v for k, v in args.items() if k in trans_block_conf_args}
 
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     #Construct datasets: Make train, test, and validation datasets
     args = arguments()
     config = collect_trans_block_arguments(vars(args))
-    config = trans_basic_block_Config(**config)
+    config = TransformerEncoderModuleConfig(**config)
     print(config, flush=True)
     model = config.build()
     # compiled_model = torch.compile(model, mode="reduce-overhead", dynamic=False)

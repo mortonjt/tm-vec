@@ -5,8 +5,22 @@ import faiss
 import numpy as np
 
 
+def xstr(s):
+    """
+    Convert None to an empty string.
+    """
+    return '' if s is None else str(s)
+
+
+def strx(s):
+    """
+    Convert an empty string to None.
+    """
+    return None if s == '' else s
+
+
 def save_database(headers: List[str], embeddings: np.ndarray,
-                  fasta_filepath: str, tm_vec_weights: str, tm_vec_conf: str,
+                  fasta_filepath: str, tm_vec_weights: str,
                   protrans_model_path: str, output_path: str) -> None:
     """
     Save protein sequence data, embeddings, and related files to a compressed NumPy archive.
@@ -16,26 +30,26 @@ def save_database(headers: List[str], embeddings: np.ndarray,
         embeddings (np.ndarray): A NumPy array containing the embeddings for the protein sequences.
         fasta_filepath (str): The file path to the input FASTA file.
         tm_vec_weights (str): The file path to the TM-vec weights file.
-        tm_vec_conf (str): The file path to the TM-vec confidence file.
         protrans_model_path (str): The file path to the ProTrans model.
         output_path (str): The file path for the output compressed NumPy archive.
 
     Returns:
         None
     """
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     input_fasta = np.array(os.path.abspath(fasta_filepath))
+    tm_vec_weights = xstr(tm_vec_weights)
     tm_vec_weights = np.array(os.path.abspath(tm_vec_weights))
-    tm_vec_conf = np.array(os.path.abspath(tm_vec_conf))
+
+    protrans_model_path = xstr(protrans_model_path)
     protrans_model_path = np.array(os.path.abspath(protrans_model_path))
-    print(embeddings.shape)
 
     np.savez_compressed(output_path,
                         headers=headers,
                         embeddings=embeddings,
                         input_fasta=input_fasta,
                         tm_vec_weights=tm_vec_weights,
-                        tm_vec_conf=tm_vec_conf,
                         protrans_model_path=protrans_model_path)
 
 
@@ -70,7 +84,6 @@ def load_database(path: str) -> tuple:
             - headers (np.ndarray): Headers for the protein sequences.
             - input_fasta (str): Absolute file path to the input FASTA file.
             - tm_vec_weights (str): Absolute file path to the TM-vec weights file.
-            - tm_vec_conf (str): Absolute file path to the TM-vec confidence file.
             - protrans_model_path (str): Absolute file path to the ProTrans model.
     """
     database = np.load(path)
@@ -79,13 +92,15 @@ def load_database(path: str) -> tuple:
 
     input_fasta = database['input_fasta'].item()
     tm_vec_weights = database['tm_vec_weights'].item()
-    tm_vec_conf = database['tm_vec_conf'].item()
     protrans_model_path = database['protrans_model_path'].item()
+
+    tm_vec_weights = strx(tm_vec_weights)
+    protrans_model_path = strx(protrans_model_path)
 
     # Build an indexed database
     index = build_vector_index(embeddings)
 
-    return embeddings, index, headers, input_fasta, tm_vec_weights, tm_vec_conf, protrans_model_path
+    return embeddings, index, headers, input_fasta, tm_vec_weights, protrans_model_path
 
 
 def query(index, queries: np.ndarray, k: int = 10):

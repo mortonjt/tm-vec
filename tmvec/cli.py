@@ -7,10 +7,9 @@ from click._compat import get_text_stderr
 from click.exceptions import UsageError
 from click.utils import echo
 
-from tmvec import TMVEC_SEQ_LIM
-from tmvec.database import get_metadata_for_neighbors, load_database
-from tmvec.database import query as query_db
-from tmvec.database import save_database
+from tmvec import TMVEC_SEQ_LIM, __version__
+from tmvec.database import (get_metadata_for_neighbors, load_database, query,
+                            save_database)
 from tmvec.utils import load_fasta_as_dict, save_embeddings, save_results
 from tmvec.vectorizer import TMVec
 
@@ -38,7 +37,7 @@ UsageError.show = _show_usage_error
 
 
 @click.group()
-@click.version_option()
+@click.version_option(__version__, "-v", "--version", prog_name="tmvec")
 def main():
     "tmvec: A tool for quick identification of remote homologues via protein embeddings"
 
@@ -49,40 +48,43 @@ def main():
               required=True,
               help=("Input proteins in fasta format to "
                     "construct the database. Can be gzipped."))
-@click.option("--tm-vec-model",
-              type=Path,
-              required=True,
-              help="Model path for TM-Vec embedding model")
-@click.option("--tm-vec-config",
-              type=Path,
-              required=True,
-              help=("Config path for TM-Vec embedding model. "
-                    "This is used to encode the proteins as "
-                    "vectors to construct the database."))
-@click.option("--protrans-model",
-              type=Path,
-              default=None,
-              required=False,
-              help=("Model path for the ProtT5 embedding model. "
-                    "If this is not specified, then the model will "
-                    "automatically be downloaded to the cache directory."))
-@click.option("--cache-dir",
-              type=Path,
-              default=None,
-              required=False,
-              help=("Cache directory for the ProtT5 model."))
 @click.option("--output",
               type=Path,
               required=True,
-              help="Output path for the database files")
+              help="Output path for the database files.")
+@click.option(
+    "--tm-vec-model",
+    type=Path,
+    default=None,
+    required=False,
+    help="Path for TM-Vec model folder from HuggingFace. "
+    "Only required if model is supposed to be run on a computer without "
+    "internet access.")
+@click.option(
+    "--protrans-model",
+    type=Path,
+    default=None,
+    required=False,
+    help=("Model path for the ProtT5 embedding model. "
+          "If this is not specified, then the model will "
+          "automatically be downloaded to the cache directory. "
+          "Only required if model is supposed to be run on a computer without "
+          "internet access."))
+@click.option(
+    "--cache-dir",
+    type=Path,
+    default=None,
+    required=False,
+    help=("Cache directory for the ProtT5 model. Might be useful if temporary "
+          "directory runs out of space."))
 @click.option("--local",
               is_flag=True,
               default=False,
               help=("If this flag is set, then the model will only "
                     "use local files. This is useful for running the "
                     "script on a machine without internet access."))
-def build_db(input_fasta, tm_vec_model, tm_vec_config, protrans_model,
-             cache_dir, output, local):
+def build_db(input_fasta, output, tm_vec_model, protrans_model, cache_dir,
+             local):
     """
     Build a database of protein vectors for fast structure search.
     """
@@ -100,10 +102,8 @@ def build_db(input_fasta, tm_vec_model, tm_vec_config, protrans_model,
     )
 
     headers, seqs = zip(*records.items())
-
     # Load model
-    tm_vec = TMVec(model_path=tm_vec_model,
-                   config_path=tm_vec_config,
+    tm_vec = TMVec(model_folder=tm_vec_model,
                    cache_dir=cache_dir,
                    protlm_path=protrans_model,
                    protlm_tokenizer_path=protrans_model,
@@ -113,7 +113,7 @@ def build_db(input_fasta, tm_vec_model, tm_vec_config, protrans_model,
 
     # Save database
     save_database(headers, encoded_database, input_fasta, tm_vec_model,
-                  tm_vec_config, protrans_model, output)
+                  protrans_model, output)
 
     logger.info(
         "Please, do not move or rename input FASTA file, TM-Vec model and config files and "
@@ -123,7 +123,7 @@ def build_db(input_fasta, tm_vec_model, tm_vec_config, protrans_model,
 
 
 @main.command()
-@click.option("--query",
+@click.option("--input-fasta",
               type=Path,
               required=True,
               help="Path to input FASTA file. Can be a gzipped.")
@@ -157,14 +157,14 @@ def build_db(input_fasta, tm_vec_model, tm_vec_config, protrans_model,
               help=("If this flag is set, then the model will only "
                     "use local files. This is useful for running the "
                     "script on a machine without internet access."))
-def search(query, database, output, output_format, output_embeddings,
+def search(input_fasta, database, output, output_format, output_embeddings,
            k_nearest, deepblast_model, local):
     """
     Search for similar proteins in a database using TM-Vec embeddings and align them with DeepBLAST.
     """
 
     # Read in query sequences
-    records = load_fasta_as_dict(query)
+    records = load_fasta_as_dict(input_fasta)
 
     prefilter = len(records)
     # remove sequences longer than 1024
@@ -178,12 +178,10 @@ def search(query, database, output, output_format, output_embeddings,
 
     # Load database
     query_database, index, target_headers, \
-        input_fasta, tm_vec_model, \
-            tm_vec_config, protrans_model = load_database(database)
+        input_fasta, tm_vec_model, protrans_model = load_database(database)
 
     # Load model
-    tm_vec = TMVec(model_path=tm_vec_model,
-                   config_path=tm_vec_config,
+    tm_vec = TMVec(model_folder=tm_vec_model,
                    cache_dir=None,
                    protlm_path=protrans_model,
                    protlm_tokenizer_path=protrans_model,
@@ -193,7 +191,7 @@ def search(query, database, output, output_format, output_embeddings,
     queries = tm_vec.vectorize_proteins(seqs)
 
     # Return the nearest neighbors
-    values, indexes = query_db(index, queries, k_nearest)
+    values, indexes = query(index, queries, k_nearest)
     # Return the metadata for the nearest neighbor results
     near_ids = get_metadata_for_neighbors(indexes, target_headers)
 

@@ -30,7 +30,6 @@ class TransformerEncoderModuleConfig(PretrainedConfig):
         self.lr0 = lr0
         self.warmup_steps = warmup_steps
         super().__init__(**kwargs)
-        self.to_dict()
 
     def build(self):
         return TransformerEncoderModule(self)
@@ -43,8 +42,6 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
     """
     TransformerEncoderLayer with preset parameters followed by global pooling and dropout
     """
-    config_class = TransformerEncoderModuleConfig
-
     def __init__(self, config: Union[TransformerEncoderModuleConfig, dict]):
         """
         Initialize the TransformerEncoderModule.
@@ -57,8 +54,11 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
             >>> # load model locally
             >>> config = TransformerEncoderModuleConfig()
             >>> model = TransformerEncoderModule(config)
+            >>> # load checkpoint
+            >>> state_dict = torch.load('checkpoint.ckpt')['state_dict']
+            >>> model.load_state_dict(state_dict)
             >>> # load model from HuggingFace Hub
-            >>> model = TransformerEncoderModule.from_pretrained("scikit-bio/tmvec")
+            >>> model = TransformerEncoderModule.from_pretrained('scikit-bio/tmvec')
 
         """
 
@@ -73,11 +73,11 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
         # build encoder
         encoder_args = {
             k: v
-            for k, v in config.items()
+            for k, v in self.config.items()
             if k in inspect.signature(nn.TransformerEncoderLayer).parameters
         }
 
-        num_layers = config['num_layers']
+        num_layers = self.config['num_layers']
 
         encoder_layer = nn.TransformerEncoderLayer(batch_first=True,
                                                    **encoder_args)

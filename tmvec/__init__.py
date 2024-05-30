@@ -3,3 +3,4 @@ __author__ = "Valentyn Bezshapkin <valentyn.bezshapkin@micro.biol.ethz.ch>"
 __licencse__ = "BSD-3-Clause"
 
 TMVEC_SEQ_LIM = 1024
+TMVEC_REPO = 'valentynbez/tmvec'

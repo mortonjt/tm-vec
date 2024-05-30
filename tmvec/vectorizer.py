@@ -4,31 +4,33 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+from tmvec import TMVEC_REPO
 from tmvec.embedding import ProtT5Encoder
-from tmvec.model import trans_basic_block, trans_basic_block_Config
+from tmvec.model import TransformerEncoderModule
 
 
 class TMVec:
     def __init__(self,
-                 model_path: str,
-                 config_path: str,
+                 model_folder: str = None,
                  cache_dir: str = None,
                  protlm_path: str = None,
                  protlm_tokenizer_path: str = None,
                  local_files_only: bool = False):
 
-        self.model_path = model_path
-        self.config_path = config_path
-        self.protlm_path = None
-        self.protlm_tokenizer_path = None
-        self.cache_dir = None
+        self.model_folder = model_folder
+        self.protlm_path = protlm_path
+        self.protlm_tokenizer_path = protlm_tokenizer_path
+        self.cache_dir = cache_dir
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         self.backend = None
         self.compile_model = None
-        self.config = trans_basic_block_Config.from_json_file(self.config_path)
-        self.model = trans_basic_block.load_from_checkpoint(
-            self.model_path, config=self.config, map_location=self.device)
+        # load from the repo
+        if not self.model_folder:
+            self.model = TransformerEncoderModule.from_pretrained(TMVEC_REPO)
+        else:
+            self.model = TransformerEncoderModule.from_pretrained(
+                self.model_folder)
         if self.protlm_tokenizer_path is None:
             self.protlm_tokenizer_path = "Rostlab/prot_t5_xl_uniref50"
         if str(self.device) == "cuda":
