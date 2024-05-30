@@ -17,14 +17,11 @@ See the [pytorch](https://pytorch.org/) webpage for more details.
 
 # Run TM-Vec from the command line
 
-To build database run the following command:
+If the computer is connected to the internet, then all the models will be downloaded automatically. If the computer is not connected to the internet, then the models will need to be downloaded manually, and the paths to the models will need to be specified.
+
 ```
 tmvec build-db \
     --input-fasta small_embed.fasta \
-    --cache-dir cache \
-    --tm-vec-config tm-vec/params.json \
-    --tm-vec-model tm-vec/model.ckpt \
-    --protrans-model cache/models--Rostlab--prot_t5_xl_uniref50 \
     --output db_test/small_fasta
 ```
 To query a sequences against a database use:
@@ -34,3 +31,9 @@ tmvec search \
     --database db_test/small_fasta.npz \
     --output db_test/result.tsv
 ```
+
+We suggest to make first runs on a smaller batches with internet connection. After first run models will be downloaded to `cache` directory, and afterwards can be manually inputted into CLI in case computing nodes do not have access to the internet.
+
+# CPU/GPU difference
+
+For CPU execution, we utilize ONNX protein language models, which give a slight speedup. For GPU, we use a standard `ProtT5` with `torch.compile` directive, which seems to be faster than ONNX.
