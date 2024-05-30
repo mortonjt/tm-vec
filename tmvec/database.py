@@ -19,9 +19,12 @@ def strx(s):
     return None if s == '' else s
 
 
-def save_database(headers: List[str], embeddings: np.ndarray,
-                  fasta_filepath: str, tm_vec_weights: str,
-                  protrans_model_path: str, output_path: str) -> None:
+def save_database(headers: List[str],
+                  embeddings: np.ndarray,
+                  fasta_filepath: str,
+                  tm_vec_weights: str = None,
+                  protrans_model_path: str = None,
+                  output_path: str = None) -> None:
     """
     Save protein sequence data, embeddings, and related files to a compressed NumPy archive.
 
