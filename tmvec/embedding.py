@@ -37,7 +37,7 @@ class ProtLM:
         self.model.to(self.device)
         if self.compile_model:
             self.model = torch.compile(self.model,
-                                       mode="max-autotune",
+                                       mode="reduce-overhead",
                                        dynamic=True)
         # set torch threads
         torch.set_num_threads(self.threads)

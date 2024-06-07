@@ -2,7 +2,6 @@ from typing import List
 
 import numpy as np
 import torch
-from tqdm import tqdm
 
 from tmvec import TMVEC_REPO
 from tmvec.embedding import ProtT5Encoder
@@ -31,6 +30,10 @@ class TMVec:
         else:
             self.model = TransformerEncoderModule.from_pretrained(
                 self.model_folder)
+
+        self.model.to(self.device)
+        self.model.eval()
+
         if self.protlm_tokenizer_path is None:
             self.protlm_tokenizer_path = "Rostlab/prot_t5_xl_uniref50"
         if str(self.device) == "cuda":
@@ -67,10 +70,7 @@ class TMVec:
 
     def vectorize_proteins(self, sequences: List[str]):
         embed_all_sequences = []
-        for seq in tqdm(sequences,
-                        desc="Vectorizing proteins",
-                        unit="proteins",
-                        total=len(sequences)):
+        for seq in sequences:
             prottrans_embedding = self.embed_single_protin([seq])
             embedded_sequence = self.embedding_to_vector(prottrans_embedding)
             embed_all_sequences.append(embedded_sequence)
