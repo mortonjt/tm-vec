@@ -108,6 +108,7 @@ def build_db(input_fasta, output, tm_vec_model, protrans_model, cache_dir,
                    protlm_path=protrans_model,
                    protlm_tokenizer_path=protrans_model,
                    local_files_only=local)
+
     # Embed all query sequences
     encoded_database = tm_vec.vectorize_proteins(seqs)
 
