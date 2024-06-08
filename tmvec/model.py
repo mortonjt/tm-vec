@@ -34,9 +34,6 @@ class TransformerEncoderModuleConfig(PretrainedConfig):
     def build(self):
         return TransformerEncoderModule(self)
 
-    def to_dict(self):
-        return self.__dict__
-
 
 class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
     """
@@ -62,30 +59,32 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
 
         """
 
-        super(L.LightningModule, self).__init__()
-        if isinstance(config, dict):
+        super().__init__()
+
+        # loading parameters from the internet model
+        if isinstance(config, TransformerEncoderModuleConfig):
             self.config = config
-        elif isinstance(config, TransformerEncoderModuleConfig):
-            self.config = config.to_dict()
+        elif isinstance(config, dict):
+            self.config = TransformerEncoderModuleConfig(**config)
         else:
             raise ValueError("Invalid config type")
 
         # build encoder
         encoder_args = {
-            k: v
-            for k, v in self.config.items()
-            if k in inspect.signature(nn.TransformerEncoderLayer).parameters
+            k: getattr(self.config, k)
+            for k in inspect.signature(nn.TransformerEncoderLayer).parameters
+            if hasattr(self.config, k)
         }
 
-        num_layers = self.config['num_layers']
+        num_layers = self.config.num_layers
 
         encoder_layer = nn.TransformerEncoderLayer(batch_first=True,
                                                    **encoder_args)
         self.encoder = nn.TransformerEncoder(encoder_layer,
                                              num_layers=num_layers)
 
-        self.dropout = nn.Dropout(self.config['dropout'])
-        self.mlp = nn.Linear(self.config['d_model'], self.config['out_dim'])
+        self.dropout = nn.Dropout(self.config.dropout)
+        self.mlp = nn.Linear(self.config.d_model, self.config.out_dim)
 
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
         self.l1_loss = nn.L1Loss(reduction='mean')

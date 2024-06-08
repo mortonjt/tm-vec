@@ -89,7 +89,7 @@ if __name__ == '__main__':
     # compiled_model = torch.compile(model, mode="reduce-overhead", dynamic=False)
 
     tree = SessionTree(args.session)
-    config.to_json(tree.params)
+    config.to_json_file(tree.params)
 
     train_ds, val_ds, test_ds = construct_datasets(args.hdf_file,
                                                    args.tm_pairs,
