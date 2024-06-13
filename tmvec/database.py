@@ -42,11 +42,15 @@ def save_database(headers: List[str],
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     input_fasta = np.array(os.path.abspath(fasta_filepath))
-    tm_vec_weights = xstr(tm_vec_weights)
-    tm_vec_weights = np.array(os.path.abspath(tm_vec_weights))
+    try:
+        tm_vec_weights = np.array(os.path.abspath(tm_vec_weights))
+    except TypeError:
+        tm_vec_weights = np.array(xstr(tm_vec_weights))
 
-    protrans_model_path = xstr(protrans_model_path)
-    protrans_model_path = np.array(os.path.abspath(protrans_model_path))
+    try:
+        protrans_model_path = np.array(os.path.abspath(protrans_model_path))
+    except TypeError:
+        protrans_model_path = np.array(xstr(protrans_model_path))
 
     np.savez_compressed(output_path,
                         headers=headers,

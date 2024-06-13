@@ -46,7 +46,7 @@ class ProtLM:
             with torch.no_grad():
                 out = self.model(**inp)
 
-            out = out.last_hidden_state.cpu().numpy()
+            out = out.last_hidden_state.detach().cpu().numpy()
 
             return out
 

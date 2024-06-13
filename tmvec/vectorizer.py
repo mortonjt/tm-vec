@@ -1,22 +1,24 @@
+import warnings
 from typing import List
 
 import numpy as np
 import torch
 
-from tmvec import TMVEC_REPO
+from tmvec import PLM_ONNX, PLM_REPO, TMVEC_REPO
 from tmvec.embedding import ProtT5Encoder
-from tmvec.model import TransformerEncoderModule
+from tmvec.model import (TransformerEncoderModule,
+                         TransformerEncoderModuleConfig)
 
 
 class TMVec:
     def __init__(self,
-                 model_folder: str = None,
+                 tmvec_model: TransformerEncoderModule = None,
                  cache_dir: str = None,
                  protlm_path: str = None,
                  protlm_tokenizer_path: str = None,
                  local_files_only: bool = False):
 
-        self.model_folder = model_folder
+        self.tmvec_model = tmvec_model
         self.protlm_path = protlm_path
         self.protlm_tokenizer_path = protlm_tokenizer_path
         self.cache_dir = cache_dir
@@ -25,25 +27,25 @@ class TMVec:
         self.backend = None
         self.compile_model = None
         # load from the repo
-        if not self.model_folder:
-            self.model = TransformerEncoderModule.from_pretrained(TMVEC_REPO)
-        else:
-            self.model = TransformerEncoderModule.from_pretrained(
-                self.model_folder)
+        if not self.tmvec_model:
+            self.tmvec_model = TransformerEncoderModule.from_pretrained(
+                TMVEC_REPO)
 
-        self.model.to(self.device)
-        self.model.eval()
+        # move model to device
+        self.tmvec_model.to(self.device)
+        # switch model to inference mode
+        self.tmvec_model.eval()
 
         if self.protlm_tokenizer_path is None:
-            self.protlm_tokenizer_path = "Rostlab/prot_t5_xl_uniref50"
+            self.protlm_tokenizer_path = PLM_REPO
         if str(self.device) == "cuda":
             if self.protlm_path is None:
-                self.protlm_path = "Rostlab/prot_t5_xl_uniref50"
+                self.protlm_path = PLM_REPO
             self.backend = "torch"
             self.compile_model = True
         elif str(self.device) == "cpu":
             if self.protlm_path is None:
-                self.protlm_path = "valentynbez/prot-t5-xl-uniref50-onnx"
+                self.protlm_path = PLM_ONNX
             self.backend = "onnx"
             self.compile_model = False
         self.embedder = ProtT5Encoder(self.protlm_path,
@@ -62,9 +64,9 @@ class TMVec:
         prot_embedding = torch.tensor(embedding).unsqueeze(0).to(self.device)
         padding = torch.zeros(prot_embedding.shape[0:2]).type(
             torch.BoolTensor).to(self.device)
-        tm_vec_embedding = self.model(prot_embedding,
-                                      src_mask=None,
-                                      src_key_padding_mask=padding)
+        tm_vec_embedding = self.tmvec_model(prot_embedding,
+                                            src_mask=None,
+                                            src_key_padding_mask=padding)
 
         return tm_vec_embedding.cpu().detach().numpy()
 
@@ -83,5 +85,23 @@ class TMVec:
         for alignment model.
         """
 
-        del self.model
+        del self.tmvec_model
         torch.cuda.empty_cache()
+
+    @classmethod
+    def from_checkpoint(cls, checkpoint_path: str, config_path: str, **kwargs):
+        config = TransformerEncoderModuleConfig.from_json_file(config_path)
+        model = TransformerEncoderModule.load_from_checkpoint(checkpoint_path,
+                                                              config=config)
+        return cls(model, **kwargs)
+
+    @classmethod
+    def from_pretrained(cls, model_folder: str, **kwargs):
+        try:
+            model = TransformerEncoderModule.from_pretrained(model_folder)
+        except TypeError:
+            warnings.warn(
+                "Model not found locally. Loading from HuggingFace Hub."
+                "This will require an internet connection.")
+            model = None
+        return cls(model, **kwargs)

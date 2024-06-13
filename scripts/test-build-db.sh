@@ -27,7 +27,7 @@ tmvec build-db \
     --output /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/db_test/small_fasta \
     --local
 
-# tmvec search \
-#     --input-fasta /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/small_embed.fasta \
-#     --database /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/db_test/small_fasta.npz \
-#     --output /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/db_test/result.tsv
+tmvec search \
+    --input-fasta /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/small_embed.fasta \
+    --database /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/db_test/cpu/small_fasta.npz \
+    --output /nfs/cds-peta/exports/biol_micro_cds_gr_sunagawa/scratch/vbezshapkin/tm-vec/db_test/cpu/result.tsv

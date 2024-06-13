@@ -103,11 +103,11 @@ def build_db(input_fasta, output, tm_vec_model, protrans_model, cache_dir,
 
     headers, seqs = zip(*records.items())
     # Load model
-    tm_vec = TMVec(model_folder=tm_vec_model,
-                   cache_dir=cache_dir,
-                   protlm_path=protrans_model,
-                   protlm_tokenizer_path=protrans_model,
-                   local_files_only=local)
+    tm_vec = TMVec.from_pretrained(model_folder=tm_vec_model,
+                                   cache_dir=cache_dir,
+                                   protlm_path=protrans_model,
+                                   protlm_tokenizer_path=protrans_model,
+                                   local_files_only=local)
 
     # Embed all query sequences
     encoded_database = tm_vec.vectorize_proteins(seqs)
@@ -148,10 +148,15 @@ def build_db(input_fasta, output, tm_vec_model, protrans_model, cache_dir,
               type=int,
               default=5,
               help="Number of nearest neighbors to return.")
+@click.option("--tm-vec-model",
+              type=Path,
+              default=None,
+              help="Path to the TM-Vec model.")
 @click.option("--deepblast-model",
               type=Path,
               default=None,
               help="Path to the DeepBLAST model.")
+@click.option("--cache-dir", type=Path, default=None, help="Cache directory.")
 @click.option("--local",
               is_flag=True,
               default=False,
@@ -159,7 +164,7 @@ def build_db(input_fasta, output, tm_vec_model, protrans_model, cache_dir,
                     "use local files. This is useful for running the "
                     "script on a machine without internet access."))
 def search(input_fasta, database, output, output_format, output_embeddings,
-           k_nearest, deepblast_model, local):
+           k_nearest, tm_vec_model, deepblast_model, cache_dir, local):
     """
     Search for similar proteins in a database using TM-Vec embeddings and align them with DeepBLAST.
     """
@@ -182,11 +187,11 @@ def search(input_fasta, database, output, output_format, output_embeddings,
         input_fasta, tm_vec_model, protrans_model = load_database(database)
 
     # Load model
-    tm_vec = TMVec(model_folder=tm_vec_model,
-                   cache_dir=None,
-                   protlm_path=protrans_model,
-                   protlm_tokenizer_path=protrans_model,
-                   local_files_only=local)
+    tm_vec = TMVec.from_pretrained(model_folder=tm_vec_model,
+                                   cache_dir=cache_dir,
+                                   protlm_path=protrans_model,
+                                   protlm_tokenizer_path=protrans_model,
+                                   local_files_only=local)
 
     # Embed all query sequences
     queries = tm_vec.vectorize_proteins(seqs)
