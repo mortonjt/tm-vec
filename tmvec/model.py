@@ -116,7 +116,7 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
                                 output_seq2: torch.Tensor,
                                 tm_score: torch.Tensor) -> torch.Tensor:
         """
-        Calculate the Euclidean distance loss.
+        Calculate the Normalized Euclidean distance loss.
 
         Args:
             output_seq1 (torch.Tensor): Output sequence 1 tensor
@@ -129,8 +129,8 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
 
         pdist_seq = nn.PairwiseDistance(p=2)
         dist_seq = pdist_seq(output_seq1, output_seq2)
-        dist_tm = torch.cdist(dist_seq.unsqueeze(0),
-                              tm_score.unsqueeze(0),
+        dist_tm = torch.cdist(dist_seq.float().unsqueeze(0),
+                              tm_score.float().unsqueeze(0),
                               p=2)
         return dist_tm
 
@@ -151,8 +151,8 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
 
         dist_seq = output_seq1 - output_seq2
         dist_seq = torch.sigmoid(dist_seq).mean(1)
-        dist_tm = torch.cdist(dist_seq.unsqueeze(0),
-                              tm_score.unsqueeze(0),
+        dist_tm = torch.cdist(dist_seq.float().unsqueeze(0),
+                              tm_score.float().unsqueeze(0),
                               p=2)
         return dist_tm
 
@@ -195,7 +195,7 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
         out_seq2 = self.forward(sequence_2,
                                 src_mask=None,
                                 src_key_padding_mask=pad_mask_2)
-        loss = self.distance_loss(out_seq1, out_seq2, tm_score)
+        loss = self.distance_loss_euclidean(out_seq1, out_seq2, tm_score)
         self.log('train_loss', loss, prog_bar=True, sync_dist=True)
         return loss
 
