@@ -250,21 +250,23 @@ def search(input_fasta, database, output, output_embeddings, protrans_model,
                     x = seqs[i]
                     seq_i = target_headers[indexes[i, j]]
                     y = seq_db.fetch(seq_i)
-
-                    pred_alignment = align_model.align(x, y)
-                    # Note : there is an edge case that smith-waterman will throw errors,
-                    # but needleman-wunsch won't.
-                    x_aligned, y_aligned = states2alignment(
-                        pred_alignment, x, y)
-                    alignments_i = [x_aligned, pred_alignment, y_aligned]
-                    # sWrite out the alignments
-                    x, s, y = alignments_i
-                    # TODO : not clear how to get the sequence IDS
-                    ix, iy = format_ids(headers[i], seq_i)
-                    fh.write(ix + ' ' + x + '\n')
-                    fh.write(iy + ' ' + y + '\n\n')
-                    # except:
-                    #     print(f'No valid alignments found for {headers[i]} {seq_i}')
+                    try:
+                        pred_alignment = align_model.align(x, y)
+                        # Note : there is an edge case that smith-waterman will throw errors,
+                        # but needleman-wunsch won't.
+                        x_aligned, y_aligned = states2alignment(
+                            pred_alignment, x, y)
+                        alignments_i = [x_aligned, pred_alignment, y_aligned]
+                        # sWrite out the alignments
+                        x, s, y = alignments_i
+                        # TODO : not clear how to get the sequence IDS
+                        ix, iy = format_ids(headers[i], seq_i)
+                        fh.write(ix + ' ' + x + '\n')
+                        fh.write(iy + ' ' + y + '\n\n')
+                    except:  # noqa: E722
+                        print(
+                            f'No valid alignments found for {headers[i]} {seq_i}'
+                        )
 
     # save tabular
     save_results(values, near_ids, target_headers, output / "results.tsv")
