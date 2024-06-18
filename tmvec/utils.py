@@ -142,7 +142,7 @@ def cosine_similarity(output_seq1: torch.Tensor,
     return dist_seq
 
 
-def save_results(values, near_ids, headers, output_format, output_file):
+def save_results(values, near_ids, headers, output_file):
     """
     Outputs the results based on the specified format.
 
@@ -153,8 +153,7 @@ def save_results(values, near_ids, headers, output_format, output_file):
         output_format (str): The desired output format (e.g., 'tabular').
         output_file (str): The file path to write the output.
     """
-    if output_format == 'tabular':
-        save_tabular_format(values, near_ids, headers, output_file)
+    save_tabular_format(values, near_ids, headers, output_file)
 
 
 def save_tabular_format(values, near_ids, headers, output_file):
@@ -192,6 +191,23 @@ def save_embeddings(queries, output_embeddings_file):
     """
     if output_embeddings_file is not None:
         np.save(output_embeddings_file, queries)
+
+
+def format_ids(str1, str2):
+    """
+    Formats two strings by padding the shorter string with spaces to match the length of the longer string.
+
+    Args:
+        str1 (str): The first string.
+        str2 (str): The second string.
+
+    Returns:
+        tuple: A tuple containing the formatted strings (str1, str2).
+    """
+    max_length = max(len(str1), len(str2))
+    str1 = str1.ljust(max_length + 1)
+    str2 = str2.ljust(max_length + 1)
+    return str1, str2
 
 
 if __name__ == '__main__':

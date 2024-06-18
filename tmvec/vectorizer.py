@@ -3,6 +3,7 @@ from typing import List
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from tmvec import PLM_ONNX, PLM_REPO, TMVEC_REPO
 from tmvec.embedding import ProtT5Encoder
@@ -56,7 +57,7 @@ class TMVec:
                                       compile_model=self.compile_model,
                                       threads=1)
 
-    def embed_single_protin(self, sequence: List[str]):
+    def embed_single_protein(self, sequence: List[str]):
         embedding = self.embedder.get_sequence_embeddings(sequence)[0]
         return embedding
 
@@ -72,8 +73,11 @@ class TMVec:
 
     def vectorize_proteins(self, sequences: List[str]):
         embed_all_sequences = []
-        for seq in sequences:
-            prottrans_embedding = self.embed_single_protin([seq])
+        for seq in tqdm(sequences,
+                        desc="Vectorizing sequences",
+                        total=len(sequences),
+                        miniters=len(sequences) // 100):
+            prottrans_embedding = self.embed_single_protein([seq])
             embedded_sequence = self.embedding_to_vector(prottrans_embedding)
             embed_all_sequences.append(embedded_sequence)
 

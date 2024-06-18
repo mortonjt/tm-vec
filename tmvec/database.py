@@ -129,23 +129,6 @@ def query(index, queries: np.ndarray, k: int = 10):
     return values, indexes
 
 
-def format_ids(str1, str2):
-    """
-    Formats two strings by padding the shorter string with spaces to match the length of the longer string.
-
-    Args:
-        str1 (str): The first string.
-        str2 (str): The second string.
-
-    Returns:
-        tuple: A tuple containing the formatted strings (str1, str2).
-    """
-    max_length = max(len(str1), len(str2))
-    str1 = str1.ljust(max_length + 1)
-    str2 = str2.ljust(max_length + 1)
-    return str1, str2
-
-
 def get_metadata_for_neighbors(indexes, headers):
     """
     Retrieves the metadata for the nearest neighbors based on their indexes.

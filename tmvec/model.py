@@ -195,7 +195,7 @@ class TransformerEncoderModule(L.LightningModule, PyTorchModelHubMixin):
         out_seq2 = self.forward(sequence_2,
                                 src_mask=None,
                                 src_key_padding_mask=pad_mask_2)
-        loss = self.distance_loss_euclidean(out_seq1, out_seq2, tm_score)
+        loss = self.distance_loss(out_seq1, out_seq2, tm_score)
         self.log('train_loss', loss, prog_bar=True, sync_dist=True)
         return loss
 

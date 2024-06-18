@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -6,11 +7,13 @@ import click
 from click._compat import get_text_stderr
 from click.exceptions import UsageError
 from click.utils import echo
+from pysam import FastaFile
 
 from tmvec import TMVEC_SEQ_LIM, __version__
 from tmvec.database import (get_metadata_for_neighbors, load_database, query,
                             save_database)
-from tmvec.utils import load_fasta_as_dict, save_embeddings, save_results
+from tmvec.utils import (format_ids, load_fasta_as_dict, save_embeddings,
+                         save_results)
 from tmvec.vectorizer import TMVec
 
 logger = logging.getLogger(__name__)
@@ -135,11 +138,17 @@ def build_db(input_fasta, output, tm_vec_model, protrans_model, cache_dir,
 @click.option("--output",
               type=Path,
               required=True,
-              help="Output path for the results.")
-@click.option("--output-format",
-              type=click.Choice(["tabular"]),
-              default="tabular",
-              help="Output format for the results.")
+              help="Output folder for the results.")
+@click.option(
+    "--protrans-model",
+    type=Path,
+    default=None,
+    required=False,
+    help=("Model path for the ProtT5 embedding model. "
+          "If this is not specified, then the model will "
+          "automatically be downloaded to the cache directory. "
+          "Only required if model is supposed to be run on a computer without "
+          "internet access."))
 @click.option("--output-embeddings",
               type=Path,
               default=None,
@@ -156,6 +165,10 @@ def build_db(input_fasta, output, tm_vec_model, protrans_model, cache_dir,
               type=Path,
               default=None,
               help="Path to the DeepBLAST model.")
+@click.option("--alignment-mode",
+              type=click.Choice(["needleman-wunsch", "smith-waterman"]),
+              default="needleman-wunsch",
+              help="Alignment format to use.")
 @click.option("--cache-dir", type=Path, default=None, help="Cache directory.")
 @click.option("--local",
               is_flag=True,
@@ -163,11 +176,15 @@ def build_db(input_fasta, output, tm_vec_model, protrans_model, cache_dir,
               help=("If this flag is set, then the model will only "
                     "use local files. This is useful for running the "
                     "script on a machine without internet access."))
-def search(input_fasta, database, output, output_format, output_embeddings,
-           k_nearest, tm_vec_model, deepblast_model, cache_dir, local):
+def search(input_fasta, database, output, output_embeddings, protrans_model,
+           k_nearest, tm_vec_model, deepblast_model, alignment_mode, cache_dir,
+           local):
     """
     Search for similar proteins in a database using TM-Vec embeddings and align them with DeepBLAST.
     """
+
+    os.makedirs(output, exist_ok=True)
+    output = Path(output)
 
     # Read in query sequences
     records = load_fasta_as_dict(input_fasta)
@@ -184,7 +201,11 @@ def search(input_fasta, database, output, output_format, output_embeddings,
 
     # Load database
     query_database, index, target_headers, \
-        input_fasta, tm_vec_model, protrans_model = load_database(database)
+        input_fasta, tm_vec_model_previous, protrans_model = load_database(database)
+
+    # quick hack to load pre-specified model instead of downloading one from the internet
+    if not tm_vec_model:
+        tm_vec_model = tm_vec_model_previous
 
     # Load model
     tm_vec = TMVec.from_pretrained(model_folder=tm_vec_model,
@@ -201,48 +222,55 @@ def search(input_fasta, database, output, output_format, output_embeddings,
     # Return the metadata for the nearest neighbor results
     near_ids = get_metadata_for_neighbors(indexes, target_headers)
 
-    # tm_vec.delete_vectorizer()  # need to clear space for DeepBLAST aligner
+    tm_vec.delete_vectorizer()  # need to clear space for DeepBLAST aligner
 
-    # # Alignment section
-    # # If we are also aligning proteins, load tm_vec align and
-    # # align nearest neighbors if true
-    # if args.deepblast_model is not None and args.output_format == 'alignment':
-    #     # moving imports here because it may take a very long time
-    #     from deepblast.dataset.utils import states2alignment
-    #     from deepblast.utils import load_model
+    # Alignment section
+    # If we are also aligning proteins, load tm_vec align and
+    # align nearest neighbors if true
+    if deepblast_model is not None:
+        # moving imports here because it may take a very long time
+        from deepblast.dataset.utils import states2alignment
+        from deepblast.utils import load_model
 
-    #     align_model = load_model(
-    #         args.deepblast_model, lm=model, tokenizer=tokenizer,
-    #         alignment_mode=args.alignment_mode,
-    #         device=device)
+        device = tm_vec.device
 
-    #     align_model = align_model.to(device)
-    #     seq_db = FastaFile(args.database_fasta)
+        align_model = load_model(deepblast_model,
+                                 lm=tm_vec.embedder.model,
+                                 tokenizer=tm_vec.embedder.tokenizer,
+                                 alignment_mode=alignment_mode,
+                                 device=device)
 
-    #     alignments = []
-    #     with open(args.output, 'w') as fh:
-    #         for i in range(I.shape[0]):
-    #             for j in range(I.shape[1]):
-    #                 x = flat_seqs[i]
-    #                 seq_i = metadata_database[I[i, j]]
-    #                 y = seq_db.fetch(seq_i)
-    #                 try:
-    #                     pred_alignment = align_model.align(x, y)
-    #                     # Note : there is an edge case that smith-waterman will throw errors,
-    #                     # but needleman-wunsch won't.
-    #                     x_aligned, y_aligned = states2alignment(pred_alignment, x, y)
-    #                     alignments_i = [x_aligned, pred_alignment, y_aligned]
-    #                     # sWrite out the alignments
-    #                     x, s, y = alignments_i
-    #                     # TODO : not clear how to get the sequence IDS
-    #                     ix, iy = format_ids(headers[i], seq_i)
-    #                     fh.write(ix + ' ' + x + '\n')
-    #                     fh.write(iy + ' ' + y + '\n\n')
-    #                 except:
-    #                     print(f'No valid alignments found for {headers[i]} {seq_i}')
+        align_model = align_model.to(device)
+        seq_db = FastaFile(input_fasta)
 
-    save_results(values, near_ids, target_headers, output_format, output)
-    save_embeddings(queries, output_embeddings)
+        # save alignments
+        with open(output / "alignments.txt", 'w') as fh:
+            for i in range(indexes.shape[0]):
+                for j in range(indexes.shape[1]):
+                    x = seqs[i]
+                    seq_i = target_headers[indexes[i, j]]
+                    y = seq_db.fetch(seq_i)
+
+                    pred_alignment = align_model.align(x, y)
+                    # Note : there is an edge case that smith-waterman will throw errors,
+                    # but needleman-wunsch won't.
+                    x_aligned, y_aligned = states2alignment(
+                        pred_alignment, x, y)
+                    alignments_i = [x_aligned, pred_alignment, y_aligned]
+                    # sWrite out the alignments
+                    x, s, y = alignments_i
+                    # TODO : not clear how to get the sequence IDS
+                    ix, iy = format_ids(headers[i], seq_i)
+                    fh.write(ix + ' ' + x + '\n')
+                    fh.write(iy + ' ' + y + '\n\n')
+                    # except:
+                    #     print(f'No valid alignments found for {headers[i]} {seq_i}')
+
+    # save tabular
+    save_results(values, near_ids, target_headers, output / "results.tsv")
+
+    if output_embeddings:
+        save_embeddings(queries, output_embeddings)
 
 
 if __name__ == '__main__':
