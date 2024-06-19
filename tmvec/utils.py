@@ -181,7 +181,7 @@ def save_tabular_format(values, near_ids, headers, output_file):
     nids.to_csv(output_file, sep='\t', index=None)
 
 
-def save_embeddings(queries, output_embeddings_file):
+def save_embeddings(seqs, queries, output_embeddings_file, output_fmt='npz'):
     """
     Outputs the embeddings to a file.
 
@@ -190,7 +190,14 @@ def save_embeddings(queries, output_embeddings_file):
         output_embeddings_file (str): The file path to write the embeddings.
     """
     if output_embeddings_file is not None:
-        np.save(output_embeddings_file, queries)
+        if output_fmt == 'npz':
+            np.save(output_embeddings_file, queries)
+        elif output_fmt == 'skbio':
+            cls = skbio.embedding.ProteinVector
+            pvs = (cls(q, s) for s, q in zip(seqs, queries))
+            skbio.io.write(pvs, format='embed', into=str(output_embeddings_file))
+        else:
+            raise ValueError(f'output_fmt {output_fmt} not supported.')
 
 
 def format_ids(str1, str2):
